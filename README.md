@@ -61,4 +61,4 @@ This is an additional distribution channel on top of the automatic project-scope
 
 ## Where prototypes are deployed
 
-Production: **aims-os-design-system.vercel.app** — each registered prototype gets a direct shareable link at `?proto=[prototype-id]`, viewable by anyone with the URL, no login (Vercel Deployment Protection is disabled on this project on purpose, so stakeholders and PMs can view results without depending on Michael).
+Production: **https://aimsos.github.io/aims-os-design-system/** — each registered prototype gets a direct shareable link at `?proto=[prototype-id]`, viewable by anyone with the URL, no login. The site publishes from `main` to GitHub Pages (`gh-pages`) via Actions.

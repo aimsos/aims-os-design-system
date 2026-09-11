@@ -5223,7 +5223,7 @@ function HomePage() {
             {/* ── Part 3: Sharing ── */}
             <DocSection title="Part 3 — Sharing prototypes with stakeholders" collapsible defaultOpen={false}>
               <Prose>
-                Prototypes are deployed at <strong>aims-os-design-system.vercel.app</strong>. Each prototype has its own direct URL — stakeholders open the screen directly, no navigation required.
+                Prototypes are deployed at <strong>aimsos.github.io/aims-os-design-system</strong>. Each prototype has its own direct URL — stakeholders open the screen directly, no navigation required.
               </Prose>
 
               <div className="flex flex-col gap-[18px]">
@@ -5231,12 +5231,12 @@ function HomePage() {
                   <div className="flex flex-col gap-[8px]">
                     <p className="text-[13px] text-[var(--field-supporting)] leading-[1.5]">Once your prototype is pushed to GitHub and Vercel has rebuilt (usually under 1 minute), your direct link is:</p>
                     <div className="rounded-md px-[14px] py-[10px]" style={{ background: "var(--field-bg)", border: "0.5px solid var(--field-border)" }}>
-                      <p className="text-[12px] font-mono" style={{ color: "var(--primary)" }}>aims-os-design-system.vercel.app/?proto=<strong>[your-prototype-id]</strong></p>
+                      <p className="text-[12px] font-mono" style={{ color: "var(--primary)" }}>aimsos.github.io/aims-os-design-system/?proto=<strong>[your-prototype-id]</strong></p>
                     </div>
                     <p className="text-[12px] leading-[1.5]" style={{ color: "var(--field-supporting)" }}>The prototype ID is the <code className="px-[4px] py-[1px] rounded text-[11px]" style={{ background: "var(--field-bg)", border: "0.5px solid var(--field-border)" }}>id</code> field in the PROTOTYPE_PAGES entry that Claude registers in App.tsx. For example: <code className="px-[4px] py-[1px] rounded text-[11px]" style={{ background: "var(--field-bg)", border: "0.5px solid var(--field-border)" }}>proto-juan-ai-workers</code>.</p>
                     <div className="rounded-md px-[14px] py-[10px]" style={{ background: "var(--color-surface-success-more-subtle)", border: "0.5px solid var(--color-surface-success-default)" }}>
                       <p className="text-[12px] font-mono" style={{ color: "var(--foreground)" }}>
-                        Example: aims-os-design-system.vercel.app/?proto=proto-juan-ai-workers
+                        Example: aimsos.github.io/aims-os-design-system/?proto=proto-juan-ai-workers
                       </p>
                     </div>
                   </div>
@@ -5424,7 +5424,7 @@ function HomePage() {
                 <div className="rounded-md px-[14px] py-[12px]" style={{ background: "var(--field-bg)", border: "0.5px solid var(--field-border)" }}>
                   <p className="text-[12px] font-semibold mb-[6px]" style={{ color: "var(--foreground)" }}>Where are prototypes viewed?</p>
                   <p className="text-[12px] leading-[1.6]" style={{ color: "var(--field-supporting)" }}>
-                    Locally on <code style={{ fontSize: 11 }}>localhost:5173</code> while the dev server is running. Deployed at <strong>aims-os-design-system.vercel.app</strong>. Each prototype has its own shareable direct link — see Part 3.
+                    Locally on <code style={{ fontSize: 11 }}>localhost:5173</code> while the dev server is running. Deployed at <strong>aimsos.github.io/aims-os-design-system</strong>. Each prototype has its own shareable direct link — see Part 3.
                   </p>
                 </div>
               </DocSection>
@@ -5510,7 +5510,7 @@ function HomePage() {
                       { actor: "Auto",   step: "Claude generates src/screens/pm-[name].tsx with real components + registers it in App.tsx", icon: "↓", color: "#9333ea" },
                       { actor: "PM",     step: "Validate at localhost:5173 → ask Claude for corrections if needed", icon: "3", color: "#2173ff" },
                       { actor: "PM",     step: "Commit → push → open PR → merge → Vercel rebuilds automatically", icon: "4", color: "#2173ff" },
-                      { actor: "PM",     step: "Share: aims-os-design-system.vercel.app/?proto=[id] — stakeholders open directly", icon: "5", color: "#2173ff" },
+                      { actor: "PM",     step: "Share: aimsos.github.io/aims-os-design-system/?proto=[id] — stakeholders open directly", icon: "5", color: "#2173ff" },
                       { actor: "Design", step: "Michael reviews visually → approves or adjusts. CODEOWNERS protects DS files from accidental edits.", icon: "6", color: "#00a07e" },
                     ].map((item, i) => (
                       <div key={i} className="flex items-start gap-[12px] py-[10px]" style={{ borderBottom: i < 7 ? "0.5px solid var(--field-border)" : undefined }}>

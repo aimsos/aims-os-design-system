@@ -203,7 +203,7 @@ import MyScreen from "./screens/pm-[author]-[feature]"
 
 `category` must be one of the values in `PROTOTYPE_CATEGORIES`, declared just above the registry in `App.tsx` — pick the closest existing area rather than inventing a seventh for a single screen. `tsc` rejects anything else. `addedOn` is today's date.
 
-`id` becomes the shareable link once deployed: `aims-os-design-system.vercel.app/?proto=proto-[author]-[feature]` — keep it a lowercase, hyphenated slug.
+`id` becomes the shareable link once deployed: `https://aimsos.github.io/aims-os-design-system/?proto=proto-[author]-[feature]` — keep it a lowercase, hyphenated slug.
 
 ## Phase 3 — Verify before calling it done
 
