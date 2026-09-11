@@ -143,6 +143,23 @@ export interface SlideOutProps {
    * room and truncate ("iew the activity log"). Optional, and the default is
    * the old derivation, so no existing panel moves.
    */
+  /**
+   * WHICH SNAP THE PANEL OPENS ON. Added 2026-09-11.
+   *
+   * The drag already snaps to 350 / 450 / half-screen; what was missing was a
+   * way to START on one of them. Content decides this, not the caller's taste:
+   * a preview you skim belongs at 350, and a panel whose job is to let you
+   * READ something — a note somebody wrote in full paragraphs — wastes the
+   * reader's time at a width that wraps every sentence three times.
+   *
+   * Named snaps rather than a pixel width, because the whole point of the
+   * snap system is that a panel is never at an arbitrary width. "half" is
+   * computed at open time, so it follows the window rather than freezing a
+   * number from whatever the viewport was on first render.
+   *
+   * Optional, defaulting to the panel's own 350 — no existing caller moves.
+   */
+  initialSnap?: "default" | "medium" | "half"
   ctaSize?: "default" | "sm"
   ctaPrimaryLabel?: string
   ctaSecondaryLabel?: string
@@ -190,6 +207,7 @@ export function SlideOut({
   children,
   showCta = true,
   showCtaSecondary = true,
+  initialSnap = "default",
   ctaSize,
   ctaPrimaryLabel = "Button",
   ctaSecondaryLabel = "Button",
@@ -217,7 +235,20 @@ export function SlideOut({
   })
 
   const defaultWidth = 350
-  const panelWidth = dragWidth ?? defaultWidth
+  const SNAP_MEDIUM  = 450
+
+  /* The opening width, recomputed each time the panel opens so "half" tracks
+     the window instead of freezing whatever it was on first render. A drag
+     always wins: once the reader has chosen a width, the caller's preference
+     is no longer the authority on it. */
+  const [snapWidth, setSnapWidth] = useState<number | null>(null)
+  useEffect(() => {
+    if (!open) { setSnapWidth(null); return }
+    if (initialSnap === "default") { setSnapWidth(null); return }
+    setSnapWidth(initialSnap === "medium" ? SNAP_MEDIUM : Math.floor(window.innerWidth / 2))
+  }, [open, initialSnap])
+
+  const panelWidth = dragWidth ?? snapWidth ?? defaultWidth
 
   // ── Chips scroll ref ────────────────────────────────────────────────────
   const chipsContainerRef = useRef<HTMLDivElement>(null)
@@ -225,15 +256,13 @@ export function SlideOut({
     chipsContainerRef.current?.scrollBy({ left: 200, behavior: "smooth" })
   }
 
-  const SNAP_MEDIUM = 450
-
   const handleResizeMouseDown = (e: React.MouseEvent) => {
     if (previewMode) return
     e.preventDefault()
     e.stopPropagation()
     const snapHalf  = Math.floor(window.innerWidth / 2)
     const snapPoints = [defaultWidth, SNAP_MEDIUM, snapHalf]
-    const startWidth = dragWidth ?? defaultWidth
+    const startWidth = dragWidth ?? snapWidth ?? defaultWidth
     dragRef.current = { startX: e.clientX, startWidth, active: true }
     setIsActiveDrag(true)
 

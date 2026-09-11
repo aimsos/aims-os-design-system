@@ -94,6 +94,22 @@ export const PEOPLE_TYPES: UcpEntityType[] = ["person", "employee"]
  */
 export const CONTACT_TYPES: UcpEntityType[] = ["person", "employee", "company"]
 
+/*
+  THE POLICY AND ASSET RECORDS ARE GONE — Michael, 2026-09-11: delete them
+  from the Entities rail as items AND delete their rows, so the module shows
+  only the kinds of contact.
+
+  They had already been excluded from "All" for making no sense in a contacts
+  roster, and from Create for not being things anybody types in. Keeping two
+  records nobody could reach from All and could only see by adding a rail item
+  was the last half-step; this finishes it.
+
+  The TYPES survive in UcpEntityType, with their labels, icons and profile
+  specs. That is deliberate: they are real objects in the platform and they
+  will get a module of their own. What has gone is the claim that the module
+  called Contacts is where they live.
+*/
+
 /** An avatar needs a face or a brand. Everything else is an icon, and a
  *  record titled with a code — RO-48291 — can only ever be an icon: there are
  *  no initials in a code. Straight from the Entity Header's own rule. */
@@ -532,6 +548,19 @@ export interface UcpNote {
   /** Records the note names and is linked to. */
   linked:     { title: string; kind: string; icon: string }[]
   attachments: { name: string; meta: string }[]
+  /**
+   * Comments left ON the note, by people other than its author — Michael,
+   * 2026-09-11: "con la opción de dejar comentarios también en las notas y
+   * ver que otros comentarios han agregado."
+   *
+   * A comment is NOT a claim and never becomes one. A claim is something the
+   * note asserts about the record, and it goes to the Sandbox plane to be
+   * sourced; a comment is a colleague talking to the author about the note.
+   * Keeping them apart is the whole reason this is its own field rather than
+   * a fourth paragraph appended to `body` — the moment a comment could reach
+   * Truth, every aside in the thread would be a governed fact.
+   */
+  comments:   { author: string; role: string; at: string; text: string }[]
 }
 
 export interface UcpActivity {
@@ -1234,124 +1263,6 @@ export const CONTACTS: UcpContact[] = [
   // a policy has no company, an asset has a custodian rather than an owner.
   // Everything the screen assumed about contacts shows up here as a bug or as
   // a slot that goes empty, which is the point of having them.
-  {
-    id: "POL-0114", type: "policy", name: "Data retention — customer records",
-    subtitle: "Tenant-wide · Reviewed quarterly · Effective Jan 2026",
-    email: "governance@acme.com", phone: "—", company: "Acme Corp",
-    owner: "Elena Fischer", status: "Active", lastInteraction: "Aug 30, 2026",
-    stateBadge: { label: "Under review", variant: "informative" },
-    source: { label: "Helix Data Studio", iconName: "Database" },
-    tags: [
-      { label: "Review due 12d", role: "signal", tone: "alert", severity: 2, tooltip: "Quarterly review opens Sep 21 and no evidence has been attached yet" },
-      { label: "Tenant-wide",    role: "classification" },
-    ],
-    meta: [
-      { iconName: "ShieldCheck", label: "9 facts",     tooltip: "Verified facts · 7 on the Truth plane, 2 on Sources." },
-      { iconName: "Users",       label: "4 studios",   tooltip: "Scope · applies to Agentic, Data, Governance and Comms studios." },
-      { iconName: "FileCheck2",  label: "3 documents", tooltip: "Canon Plane documents · the policy, its DPIA and the last audit note." },
-      { iconName: "Bot",         label: "Tier 1",      tooltip: "Assigned agent · Governance Concierge, tier 1." },
-    ],
-    agent: { id: "AGT-10", name: "Governance Concierge" },
-    nba: {
-      title: "Attach the evidence for the September review",
-      timestamp: "1d ago",
-      rationale: "The review opens Sep 21 and the last two cycles were signed off late because evidence was gathered in the week of the review.",
-    },
-    insights: [
-      {
-        id: "read-1", category: "Governance", destination: "Knowledge",
-        headline: "Applies to every studio, evidenced in one.",
-        detail: "The policy is tenant-wide but the only attached evidence comes from the Data studio. The other three have nothing on file, which is what made the last two reviews run late.",
-        confidence: 76,
-      },
-    ],
-    governance: "loaded", risk: "loaded", connections: "empty",
-  },
-  {
-    id: "POL-0121", type: "policy", name: "Agent escalation to a human",
-    subtitle: "Agentic studio · Reviewed monthly · Effective Jul 2026",
-    email: "governance@acme.com", phone: "—", company: "Acme Corp",
-    owner: "Marcus Webb", status: "Active", lastInteraction: "Sep 2, 2026",
-    source: { label: "Helix Data Studio", iconName: "Database" },
-    tags: [
-      { label: "Agentic studio", role: "classification" },
-    ],
-    meta: [
-      { iconName: "ShieldCheck", label: "7 facts",     tooltip: "Verified facts · 6 on the Truth plane, 1 on Sandbox." },
-      { iconName: "Workflow",    label: "11 workflows", tooltip: "Bound workflows · 11 route through this policy before acting." },
-      { iconName: "Bot",         label: "Tier 1",      tooltip: "Assigned agent · Governance Concierge, tier 1." },
-    ],
-    agent: { id: "AGT-10", name: "Governance Concierge" },
-    nba: null,
-    insights: [
-      {
-        id: "read-1", category: "Governance", destination: "Workflows",
-        headline: "Eleven workflows depend on this one policy.",
-        detail: "Every agent action that reaches a customer passes through this escalation rule. A change here is not a policy edit — it is a change to eleven live workflows, which is why it reviews monthly rather than quarterly.",
-        confidence: 84,
-      },
-    ],
-    governance: "loaded", risk: "empty", connections: "empty",
-  },
-  {
-    id: "AST-2290", type: "asset", name: "AST-2290",
-    subtitle: "Service loaner · Tampa North · Acquired Mar 2024",
-    email: "fleet@riverbendauto.com", phone: "—", company: "Riverbend Auto Group",
-    owner: "Daniel Ruiz", status: "Active", lastInteraction: "Sep 4, 2026",
-    source: { label: "CDK Global", iconName: "Car" },
-    tags: [
-      { label: "Service due", role: "signal", tone: "alert", severity: 2, tooltip: "42,000 km service was due at 40,000 — 2,000 km over" },
-      { label: "Loaner",      role: "classification" },
-    ],
-    meta: [
-      { iconName: "ShieldCheck", label: "5 facts",    tooltip: "Verified facts · 4 on the Truth plane, 1 on Sources." },
-      { iconName: "Store",       label: "Tampa North", tooltip: "Assigned site · Tampa North." },
-      { iconName: "Gauge",       label: "42,000 km",  tooltip: "Odometer · 42,000 km at the last check-in, Sep 4." },
-      { iconName: "Bot",         label: "Tier 3",     tooltip: "Assigned agent · Fleet Concierge, tier 3." },
-    ],
-    agent: { id: "AGT-11", name: "Fleet Concierge" },
-    nba: {
-      title: "Book the overdue 40,000 km service",
-      timestamp: "6h ago",
-      rationale: "It is 2,000 km past the interval and the vehicle is still going out as a loaner, which moves the liability to us.",
-    },
-    insights: [
-      {
-        id: "read-1", category: "Service", destination: "Workflows",
-        headline: "Still in rotation while overdue for service.",
-        detail: "The 40,000 km service is 2,000 km late and the vehicle has been issued to three customers since. It is the only loaner in the Tampa North pool in that state.",
-        confidence: 83,
-      },
-    ],
-    governance: "empty", risk: "loaded", connections: "empty",
-  },
-  {
-    id: "AST-2314", type: "asset", name: "AST-2314",
-    subtitle: "Diagnostic rig · Brandon · Acquired Nov 2025",
-    email: "fleet@riverbendauto.com", phone: "—", company: "Riverbend Auto Group",
-    owner: "Daniel Ruiz", status: "Inactive", lastInteraction: "Jul 18, 2026",
-    stateBadge: { label: "In storage", variant: "neutral" },
-    source: { label: "CDK Global", iconName: "Car" },
-    tags: [
-      { label: "Equipment", role: "classification" },
-    ],
-    meta: [
-      { iconName: "ShieldCheck", label: "4 facts",   tooltip: "Verified facts · 3 on the Truth plane, 1 on Sources." },
-      { iconName: "Store",       label: "Brandon",   tooltip: "Assigned site · Brandon, in storage since Jul 18." },
-      { iconName: "Bot",         label: "Tier 3",    tooltip: "Assigned agent · Fleet Concierge, tier 3." },
-    ],
-    agent: { id: "AGT-11", name: "Fleet Concierge" },
-    nba: null,
-    insights: [
-      {
-        id: "read-1", category: "Service",
-        headline: "Idle since July, and nothing is waiting on it.",
-        detail: "No repair order has requested this rig since Jul 18. It is in storage at Brandon and no workflow references it, so nothing breaks while it sits.",
-        confidence: 74,
-      },
-    ],
-    governance: "empty", risk: "empty", connections: "empty",
-  },
 ]// ── Per-record collections ────────────────────────────────────────────────────
 // Built from the contact itself so every profile reads as that record's own
 // data rather than one shared fixture repeated 14 times.
@@ -1533,6 +1444,12 @@ export function getActivity(c: UcpContact): UcpActivity[] {
           { title: "Governance addendum",          kind: "Document · Legal",     icon: "FileText" },
         ],
         attachments: [],
+        comments: [
+          { author: "David Park", role: "IT Director", at: "Sep 3, 2026 · 09:12",
+            text: "The security review point is right. Their reviewer told me the same thing on a separate thread — she cannot open a ticket without a date on it." },
+          { author: "Amy Chen", role: "CFO", at: "Sep 3, 2026 · 11:40",
+            text: "Reading “pricing is settled” as settled for THIS cycle only. The renewal uplift has not been put to them yet." },
+        ],
       },
     },
     {
@@ -1567,6 +1484,10 @@ export function getActivity(c: UcpContact): UcpActivity[] {
         ],
         attachments: [
           { name: "QBR-transcript-aug26.txt", meta: "Text · 41 KB" },
+        ],
+        comments: [
+          { author: "Sarah Chen", role: "Head of Compliance", at: "Aug 22, 2026 · 16:30",
+            text: "Third review, not the second — these were also raised in April and closed without a date then too." },
         ],
       },
     },

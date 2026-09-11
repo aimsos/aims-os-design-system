@@ -3366,7 +3366,7 @@ const SIDE_PANEL_SPEC = {
     { name: "S (default)",  value: "350px" },
     { name: "M",             value: "450px" },
     { name: "Half-screen",   value: "50vw (dynamic — always half the live window width)" },
-    { name: "Collapsed",     value: "48px (shown when closed, unless showCollapsedStrip={false})" },
+    { name: "Collapsed",     value: "48px (shown when closed, unless showCollapsedStrip={false} — then 0, and the header shows X)" },
   ],
   typography: [
     { element: "Title",               family: "Inter", size: "18px", weight: "600", lineHeight: "100%" },
@@ -3384,7 +3384,7 @@ const SIDE_PANEL_SPEC = {
     { name: "defaultWidth",      type: "number",              default: "350",        note: "Starting width in px. Use 350 (S) on small screens or multi-panel layouts." },
     { name: "widthPresets",      type: "number[]",            default: "[350, 450]", note: "Drag-to-resize snap points (S, M) — a dynamic half-screen snap is always added as the third point." },
     { name: "onWidthChange",     type: "(width: number) => void", default: "—",      note: "Called when width snaps to a new preset via drag." },
-    { name: "showCollapsedStrip",type: "boolean",             default: "true",       note: "Show a 48px strip with nav icons when closed. Set false to fully collapse to 0." },
+    { name: "showCollapsedStrip",type: "boolean",             default: "true",       note: "Show a 48px strip with nav icons when closed. Set false to fully collapse to 0 — the header control then becomes a real Close (X), because there is no strip left to collapse into. Use false when something else on the page reopens the panel." },
     { name: "searchPlaceholder", type: "string",              default: '"Search…"',  note: "Search input placeholder text." },
     { name: "onClose",           type: "() => void",          default: "—",          note: "Called on close/collapse button click." },
     { name: "children",          type: "ReactNode",           default: "—",          note: "Dynamic content slot. Scrollable. Supports any content." },
@@ -40576,7 +40576,7 @@ const [open, setOpen] = useState(false)
                 { name: "S (default)",   width: "350px", note: "Starting width (defaultWidth prop) — fixed, does not scale with viewport." },
                 { name: "M",              width: "450px", note: "Second snap point (widthPresets[1]) — drag the edge past S to reach it." },
                 { name: "Half-screen",    width: "50vw",  note: "Third snap point — always exactly half the live window width, computed on drag." },
-                { name: "Collapsed",      width: "48px",  note: "Strip shown when closed (showCollapsedStrip, default true) — keeps nav icons reachable." },
+                { name: "Collapsed",      width: "48px",  note: "Strip shown when closed (showCollapsedStrip, default true) — keeps nav icons reachable. At false the panel closes to 0 and its header control is an X, not a collapse chevron." },
               ].map(p => (
                 <div key={p.name} className="rounded-[8px] p-[16px]" style={{ background: "var(--card)", border: "1px solid var(--field-border)" }}>
                   <p className="text-[18px] font-bold mb-[2px]" style={{ color: "var(--primary)" }}>{p.width}</p>

@@ -18,7 +18,7 @@
  */
 import { cn } from "@/lib/utils"
 import { useState, useRef, type ReactNode } from "react"
-import { Search, MoreVertical, PanelRight, PanelLeft } from "lucide-react"
+import { Search, MoreVertical, PanelRight, PanelLeft, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tooltip } from "@/components/ui/tooltip"
@@ -359,14 +359,22 @@ export function SidePanel({
                     aria-label="Panel menu"
                   />
                 )}
-                <Button
-                  variant="tertiary"
-                  size="sm"
-                  iconPosition="alone"
-                  icon={isRight ? <PanelRight size={14} /> : <PanelLeft size={14} />}
-                  aria-label="Collapse panel"
-                  onClick={onClose}
-                />
+                {/* Collapse or close: with no strip to collapse into, the
+                    control dismisses the panel outright, so it says X. */}
+                <Tooltip content={showCollapsedStrip ? "Collapse panel" : "Close panel"}>
+                  <Button
+                    variant="tertiary"
+                    size="sm"
+                    iconPosition="alone"
+                    icon={
+                      showCollapsedStrip
+                        ? (isRight ? <PanelRight size={14} /> : <PanelLeft size={14} />)
+                        : <X size={14} />
+                    }
+                    aria-label={showCollapsedStrip ? "Collapse panel" : "Close panel"}
+                    onClick={onClose}
+                  />
+                </Tooltip>
               </div>
             </div>
 

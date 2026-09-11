@@ -166,6 +166,26 @@ export interface ScreenLayoutProps {
    * }
    */
   pagination?: ReactNode
+  /**
+   * ── A panel that divides the PAGE ──────────────────────────────────────
+   *
+   * Added 2026-09-11. Rendered as a sibling of the main column, inside the
+   * same flex row as the Sidebar — so it spans from under the Topbar to the
+   * bottom of the window and the header, the content and the pagination all
+   * sit to its left.
+   *
+   * WHY IT CANNOT JUST GO IN `children`. A SidePanel is a layout panel, not
+   * an overlay: it takes its width out of the flow. Put inside `children` it
+   * is inside the SCROLL CONTAINER and below the header zone, so it starts
+   * where the content starts, ends where the content ends, and scrolls with
+   * it — a column the height of whatever happens to be on screen rather than
+   * a division of the page. Gmail's Gemini panel is the reference and it is
+   * the full height of the window for the same reason.
+   *
+   * The screen still owns the panel's open state and its props; this slot
+   * only says WHERE it belongs.
+   */
+  sidePanel?: ReactNode
 }
 
 export function ScreenLayout({
@@ -185,6 +205,7 @@ export function ScreenLayout({
   header,
   children,
   pagination,
+  sidePanel,
 }: ScreenLayoutProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [isScrolled, setIsScrolled] = useState(false)
@@ -298,6 +319,11 @@ export function ScreenLayout({
 
           </div>
         </div>
+
+        {/* The page divider. After the main column and inside the same row as
+            the Sidebar, so it runs the full height and the content yields its
+            width rather than sliding underneath. */}
+        {sidePanel}
       </div>
     </div>
     </PageScrollContext.Provider>

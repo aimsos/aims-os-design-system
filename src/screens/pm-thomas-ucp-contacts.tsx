@@ -96,7 +96,7 @@ const ALL_TYPE_TABS: { id: string; label: string; type: UcpEntityType | "all" }[
   // a person is where it stops meaning anything, and its replacement is the
   // global search rather than a wider table.
   { id: "all", label: "All", type: "all" },
-  ...(["person", "employee", "company", "policy", "asset"] as UcpEntityType[])
+  ...(["person", "employee", "company"] as UcpEntityType[])
     .map(t => ({ id: t, label: TYPE_PLURAL[t], type: t })),
 ]
 

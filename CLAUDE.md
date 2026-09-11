@@ -680,7 +680,8 @@ Structure content top-to-bottom in this order:
 
 **SidePanel default sizes and drag behavior:**
 - Starts at **350px**, drags to **450px** → **half-screen**. Same snap logic as SlideOut.
-- Always set `showCollapsedStrip` — the collapsed strip is the only affordance when the panel is closed; without it, there's no way to reopen it.
+- **`showCollapsedStrip` is the default, not a requirement** (revised 2026-09-11). The strip is the only way back into a panel that nothing else opens — a node inspector beside a canvas, a master-detail pane — so leave it on for those. Turn it OFF when a control on the page owns the panel: UCP's `Ask` button opens the Concierge, so a 48px strip parked at the right edge of every record was permanent furniture for a panel nobody had asked for. At `false` the header's control stops being a collapse chevron and becomes a real **Close (X)** — the component switches the icon and the label itself, so a caller cannot end up promising a strip that is not there.
+- **A `SidePanel` that divides the page goes in `ScreenLayout`'s `sidePanel` slot**, never inside the page's content column. The slot renders it as a sibling of the main column in the same flex row as the `Sidebar`, so it runs the full height of the page and the content yields its width. Render it among your `children` instead and it lands under the `Header`, at the height of whatever widget it happens to sit beside, with the record sliding underneath — which is the bug, not a narrower version of the feature.
 
 **Quick decision:** Is the panel overlapping a browsable list? → `SlideOut`. Is it embedded alongside a canvas or builder where the user edits something in context? → `SidePanel`.
 
