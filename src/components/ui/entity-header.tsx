@@ -1248,7 +1248,7 @@ function EntityHeader({
   /**
    * THE STICKY WRAPPER, and why it is frosted rather than painted.
    *
-   * `--card-default-bg` is a 10% white: the card's surface is TRANSLUCENT by
+   * `--card-default-bg` is a 5% white: the card's surface is TRANSLUCENT by
    * design and only reads correctly because the page ground shows through it.
    * That makes a sticky card awkward twice over.
    *

@@ -653,7 +653,7 @@ const CARD_SPEC = {
       name: "Default",
       borderWidth: "0.5px",
       tokens: [
-        { role: "Background",      variable: "--card-default-bg",           varId: "", light: "#ffffff", dark: "rgba(255,255,255,0.1)"  },
+        { role: "Background",      variable: "--card-default-bg",           varId: "", light: "#ffffff", dark: "rgba(255,255,255,0.05)" },
         { role: "Border",          variable: "--card-default-border",       varId: "", light: "#bababa", dark: "rgba(255,255,255,0.15)" },
         { role: "Border hover",    variable: "--card-default-hover-bd",     varId: "", light: "#5c5c5c", dark: "rgba(255,255,255,0.1)"  },
         { role: "Border selected", variable: "--card-default-selected-bd",  varId: "", light: "#2173ff", dark: "#2b7fff"                },
@@ -664,7 +664,7 @@ const CARD_SPEC = {
       name: "White Opacity",
       borderWidth: "0.5px",
       tokens: [
-        { role: "Background (reused)",      variable: "--card-default-bg",             varId: "", light: "#ffffff", dark: "rgba(255,255,255,0.1)" },
+        { role: "Background (own token)",   variable: "--card-whiteopacity-bg",        varId: "", light: "#ffffff", dark: "rgba(255,255,255,0.1)" },
         { role: "Border (reused)",           variable: "--card-default-border",         varId: "", light: "#bababa", dark: "rgba(255,255,255,0.15)" },
         { role: "Border hover (reused)",     variable: "--card-default-hover-bd",       varId: "", light: "#5c5c5c", dark: "rgba(255,255,255,0.1)" },
         { role: "Border selected (reused)",  variable: "--card-default-selected-bd",    varId: "", light: "#2173ff", dark: "#2b7fff" },
