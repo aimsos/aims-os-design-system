@@ -1304,6 +1304,12 @@ artifact cannot be shared between the jobs.
 audits. A visually broken screen that compiles will publish. That is why the
 sign-off moved to before the merge.
 
+**`main` IS PROTECTED — a merge needs an approved review** (confirmed
+2026-09-14 by being refused one). An earlier draft of this file said there was
+no protection at all, because the repo's own branch-protection API returns
+nothing at this permission level. It is not readable, which is not the same as
+not there; the only reliable test is to try to merge.
+
 **THE MOVE COST US THE PER-BRANCH PREVIEW, and that is a real loss, not a
 detail.** Vercel built every PR at its own URL, which is what let Michael
 review a flow, and share it with a PM or with Thom, without anyone installing
