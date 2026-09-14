@@ -18,7 +18,7 @@ If that file changes, follow the current version — this skill's job is orchest
 
 ## The one constraint that shapes the whole shipping step
 
-`.github/CODEOWNERS` requires `@cachilupis` (Michael) to review any PR touching `src/App.tsx`, `src/components/`, `src/index.css`, `tailwind.config.*`, or `CLAUDE.md`. Registering a new prototype always edits `App.tsx` — one import line, one entry in the `PROTOTYPE_PAGES` array — so **every** prototype PR needs his approval before merge, even though the screen file itself lives safely in the unowned `src/screens/`. This isn't a failure state to work around; it's the intended safety net (a PM accidentally editing a shared DS file shouldn't be able to break every other prototype). Say so plainly in the PR body and in the final report — silence here reads as "something's stuck" when it's actually working as designed.
+`.github/CODEOWNERS` requires `@michaelorellana-design` (Michael) to review any PR touching `src/App.tsx`, `src/components/`, `src/index.css`, `tailwind.config.*`, or `CLAUDE.md`. Registering a new prototype always edits `App.tsx` — one import line, one entry in the `PROTOTYPE_PAGES` array — so **every** prototype PR needs his approval before merge, even though the screen file itself lives safely in the unowned `src/screens/`. This isn't a failure state to work around; it's the intended safety net (a PM accidentally editing a shared DS file shouldn't be able to break every other prototype). Say so plainly in the PR body and in the final report — silence here reads as "something's stuck" when it's actually working as designed.
 
 Because of this, keep the `App.tsx` diff to *exactly* those two lines, every time. That's what makes the review a 10-second glance instead of a real audit.
 
@@ -255,7 +255,7 @@ gh pr create --title "Add [human label] prototype screen" --body "$(cat <<'EOF'
 - Preview once merged: `?proto=proto-[author]-[feature]`
 
 ## Note for review
-Touches `src/App.tsx` (2 lines: import + registry entry) to register the screen — CODEOWNERS requires @cachilupis's review for that file. Everything else is new, isolated screen code.
+Touches `src/App.tsx` (2 lines: import + registry entry) to register the screen — CODEOWNERS requires @michaelorellana-design's review for that file. Everything else is new, isolated screen code.
 
 ## Test plan
 - [x] `npm run build` clean
