@@ -85,7 +85,7 @@ import { SECONDARY_METADATA_MAX } from "@/components/ui/entity-header"
 import * as LucideIcons from "lucide-react"
 import { Sparkle, Send, ScanLine, Inbox, HardDrive, FileSearch, Lock } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
-import { specForContact, tabsForContact } from "./ucpTypeModel"
+import { specForContact, tabsForContact, INTELLIGENCE_ENABLED } from "./ucpTypeModel"
 import type { CanvasEntry, ProfileWidgetRow } from "./ucpTypeModel"
 import {
   PANEL_CONTENT_CLASS,
@@ -310,11 +310,21 @@ function AlertsContent({ contact, onGoTab }: { contact: UcpContact; onGoTab: (id
   }
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      {/* WITH INTELLIGENCE OFF THESE ROWS ARE NOT LINKS — 2026-09-14.
+          They read the same either way; what changes is whether they respond.
+          A row that still looked clickable and went nowhere would be a dead
+          click on the first screen of the record, which is worse than a row
+          that never offered. The signals themselves stay: they are the most
+          decision-relevant thing on Overview, and they are legible here
+          without the tab that explains them. */}
       {signals.slice(0, 4).map(sig => (
         <button
           key={sig.type}
-          className="appearance-none bg-transparent border-0 p-0 cursor-pointer text-left"
-          onClick={() => onGoTab("intelligence")}
+          className={INTELLIGENCE_ENABLED
+            ? "appearance-none bg-transparent border-0 p-0 cursor-pointer text-left"
+            : "appearance-none bg-transparent border-0 p-0 text-left cursor-default"}
+          onClick={INTELLIGENCE_ENABLED ? () => onGoTab("intelligence") : undefined}
+          disabled={!INTELLIGENCE_ENABLED}
           style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", font: "inherit" }}
         >
           <span
@@ -331,10 +341,19 @@ function AlertsContent({ contact, onGoTab }: { contact: UcpContact; onGoTab: (id
           <span style={{ fontSize: 11, color: "var(--muted-foreground)", whiteSpace: "nowrap" }}>{sig.since}</span>
         </button>
       ))}
+      {/* The CTA names the tab, so it goes with it rather than being reworded
+          into a button that points at nothing. The count is still true and
+          still worth saying — it just says it as text. */}
       {signals.length > 4 && (
-        <Button variant="tertiary" size="sm" className="self-start !px-0" onClick={() => onGoTab("intelligence")}>
-          {`${signals.length - 4} more in Intelligence`}
-        </Button>
+        INTELLIGENCE_ENABLED ? (
+          <Button variant="tertiary" size="sm" className="self-start !px-0" onClick={() => onGoTab("intelligence")}>
+            {`${signals.length - 4} more in Intelligence`}
+          </Button>
+        ) : (
+          <span className="self-start text-[11px] pt-[4px]" style={{ color: "var(--field-supporting)" }}>
+            {`${signals.length - 4} more not shown`}
+          </span>
+        )
       )}
     </div>
   )
@@ -3403,15 +3422,71 @@ function KnowledgeTab({ contact, onPreview, onPreviewFact }: {
   )
 }
 
+/**
+ * What the reader clicked to get here, when they did not click `Ask`.
+ *
+ * `null` is the ordinary case: somebody opened the concierge to ask a
+ * question, and it opens on its usual greeting.
+ */
+type ConciergeIntent = { channel: "email" | "sms"; value: string } | null
+
 function ConciergeChat({
-  contact, open, onClose,
+  contact, open, onClose, intent,
 }: {
   contact: UcpContact
   open:    boolean
   onClose: () => void
+  intent:  ConciergeIntent
 }) {
   const [turns, setTurns] = useState<ConciergeTurn[]>(() => getConciergeOpening(contact))
   const [draft, setDraft] = useState("")
+
+  /*
+    ── Opening on an intent ──────────────────────────────────────────────────
+    Michael, 2026-09-11: clicking the email or the phone in the record header
+    opens this panel with the action already proposed.
+
+    THE AGENT OFFERS TO DRAFT, IT DOES NOT SEND. That is the platform's own
+    rule — the agent executes, the human governs — and it is why this is a
+    chat turn rather than a composer that fires. What lands here is the agent
+    saying what it would write and where it got the material; the reader
+    decides. A click on a phone number that had already sent an SMS would be
+    the worst possible reading of "one click away".
+
+    The turn REPLACES the greeting rather than being appended to it. Somebody
+    who clicked an address does not need to be told what a concierge is first;
+    they asked for one thing and the panel should be showing that one thing.
+
+    Keyed on `intent`, not on `open`: reopening the panel with the same intent
+    should not stack a second identical proposal, and switching from the email
+    to the phone while it is open has to re-seed. A null intent restores the
+    greeting, so `Ask` after a channel click opens clean.
+  */
+  useEffect(() => {
+    if (!intent) { setTurns(getConciergeOpening(contact)); return }
+    const isEmail = intent.channel === "email"
+    setTurns([
+      {
+        id:   "intent-u",
+        from: "user",
+        text: isEmail
+          ? `Write an email to ${intent.value}`
+          : `Send an SMS to ${intent.value}`,
+      },
+      {
+        id:   "intent-a",
+        from: "agent",
+        text: isEmail
+          ? `I can draft it. The open thread on this record is the migration timeline ${contact.name} asked for in writing — I would lead with the date and attach the governance addendum already in Legal. Nothing sends until you approve the draft.`
+          : `I can draft it. ${contact.name} answers faster on SMS than on email here, so I would keep it to the date and a link rather than the full timeline. Nothing sends until you approve the draft.`,
+        sources: [
+          { label: isEmail ? "Interaction history" : "Channel response times", plane: "truth"   },
+          { label: "Call notes — Sep 2",                                      plane: "sandbox" },
+        ],
+      },
+    ])
+    setDraft("")
+  }, [intent, contact])
 
   const ask = (question: string) => {
     if (!question.trim()) return
@@ -3664,13 +3739,15 @@ function RestrictedBody({ name, scope }: { name: string; scope: string }) {
 // ── Profile view ──────────────────────────────────────────────────────────────
 
 export function UcpProfileView({
-  contact, onBack, onSidebarItemClick, onOpenRecord,
+  contact, onBack, onSidebarItemClick, onOpenRecord, onEdit,
 }: {
   contact: UcpContact
   onBack?: () => void
   onSidebarItemClick?: (id: string) => void
   /** Opening a person from a company's People tab. The roster owns navigation. */
   onOpenRecord?: (c: UcpContact) => void
+  /** Edit this record. The roster owns the flow, the same way it owns Create. */
+  onEdit?: (c: UcpContact) => void
 }) {
   const [tab,        setTab]        = useState("overview")
   const [actGroup,   setActGroup]   = useState<ActivityGroup | "all">("all")
@@ -3691,6 +3768,10 @@ export function UcpProfileView({
   const [chatOpen,   setChatOpen]   = useState(false)
   const [infoOpen,   setInfoOpen]   = useState(false)
   const [drivePeek,  setDrivePeek]  = useState<UcpDrive | null>(null)
+  /* What the reader clicked to open the concierge: an address, a number, or
+     nothing at all when they pressed Ask. Cleared on close so the next Ask
+     opens on the greeting rather than on a stale proposal. */
+  const [chatIntent, setChatIntent] = useState<ConciergeIntent>(null)
   const [notePeek,   setNotePeek]   = useState<{ note: UcpNote; title: string } | null>(null)
   /* Comments added in this session, keyed by the note's title — the fixtures
      are read-only, so anything typed here lives beside them rather than in
@@ -3703,7 +3784,10 @@ export function UcpProfileView({
 
   // Ask and Information both open on the side — opening one closes the other,
   // and the panel requested last wins.
-  const openChat = () => { setInfoOpen(false); setDrivePeek(null); setChatOpen(true) }
+  /* Ask clears the intent: it is the "I have a question" entry point, so it
+     opens on the greeting even when the panel is already showing a proposed
+     draft from a channel click. */
+  const openChat = () => { setInfoOpen(false); setDrivePeek(null); setChatIntent(null); setChatOpen(true) }
   const openInfo = () => { setChatOpen(false); setDrivePeek(null); setInfoOpen(true) }
 
   const state = entityState(contact)
@@ -3817,16 +3901,23 @@ export function UcpProfileView({
           tooltip: m.tooltip,
         }))
 
+      /* THE ONLY TWO ACTIONABLE ITEMS IN THE ROW — Michael, 2026-09-11.
+         An address and a number are not facts you read about this record,
+         they are the thing you were leaving the page to use. Clicking one
+         opens the concierge with the action proposed; it never sends. The
+         counts beside them stay inert, because "10 facts" has no click. */
       const reach: SecondaryMetadataItem[] = [
         {
           icon:    LucideIcons.Mail as LucideIcon,
           text:    contact.email,
-          tooltip: `Email · ${contact.email}. The address every thread on this record was sent to or from.`,
+          tooltip: `Write to ${contact.email} — opens ${contact.agent.name} with a draft proposed. Nothing sends without your approval.`,
+          onClick: () => { setChatIntent({ channel: "email", value: contact.email }); setChatOpen(true) },
         },
         {
           icon:    LucideIcons.Phone as LucideIcon,
           text:    contact.phone,
-          tooltip: `Phone · ${contact.phone}. The number every call and SMS on this record used.`,
+          tooltip: `Text ${contact.phone} — opens ${contact.agent.name} with a draft proposed. Nothing sends without your approval.`,
+          onClick: () => { setChatIntent({ channel: "sms", value: contact.phone }); setChatOpen(true) },
         },
       ]
 
@@ -4059,7 +4150,12 @@ export function UcpProfileView({
         main column instead, and everything else on the page yields its width.
       */
       sidePanel={
-        <ConciergeChat contact={contact} open={chatOpen} onClose={() => setChatOpen(false)} />
+        <ConciergeChat
+          contact={contact}
+          open={chatOpen}
+          intent={chatIntent}
+          onClose={() => { setChatOpen(false); setChatIntent(null) }}
+        />
       }
       header={isScrolled => (
         <>
@@ -4160,7 +4256,17 @@ export function UcpProfileView({
            action, and the header is better with an empty slot than with a
            button nobody asked for. `Ask` remains the one CTA. */
         /* Destructive and secondary only — Archive is never one click away. */
-        menuActions={[{ label: "Archive", onClick: () => {} }]}
+        /* EDIT FIRST, ARCHIVE SECOND — Michael, 2026-09-14.
+           CLAUDE.md's kebab rule is that the menu holds the destructive and
+           the secondary, never the page's main action, and Edit is squarely
+           the second of those: a record is read far more often than it is
+           corrected. It goes above Archive because it is the reversible one,
+           and because a menu that opens with Archive under the cursor is a
+           menu one slip from removing the record. */
+        menuActions={[
+          ...(onEdit ? [{ label: "Edit", onClick: () => onEdit(contact) }] : []),
+          { label: "Archive", onClick: () => {} },
+        ]}
       />
       {/* NO Next Best Action card. It sat here, below the header and in its own
           container, which is where the DS says a recommendation goes. Michael
