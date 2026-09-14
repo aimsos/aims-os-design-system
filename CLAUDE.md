@@ -370,6 +370,10 @@ The one case that justifies it is **an opaque code as the title**: `RO-48291` al
 - **What qualifies:** something a person could act on, or something governance requires be visible — counts of Truth Plane facts and Canon Plane documents (counted *separately*: a document is not a fact, and TR outranks CR), open workflows, the assigned agent tier, access role, tenure, a Bridge ID where policy permits.
 - **What does not:** anything true of every entity of the same type — that is a label, not information — and anything describing a conversation rather than the entity.
 - **`secondaryMetadata` is not `recordFields`.** RECORD fields carry provenance and a masking state and are reached through the "About this record" trigger; secondary metadata is display-only and always visible. Both exist at once — never fold one into the other.
+- **One item may carry an `onClick`, and almost none should** (2026-09-11). The row is display-only by default and stays that way unless you pass it. It is for values that **name a channel** — an email address, a phone number: not facts you read about the entity, but the thing you were leaving the page to use. **A count is never actionable** — if you cannot say in three words what the click does, it does not get one.
+  - **It must not send.** An actionable item opens the surface where the action is composed and governed — the record's agent panel — because the agent executes and the human governs. A row that fires an email on one click has skipped the half that matters.
+  - It renders as a real `<button>` in the DS Link type style with the **underline only, never the link's blue.** Blue in this row reads as a state and competes with the state badge and the signal tags two rows up; the underline alone says "this responds" while the colour keeps the row a row.
+  - **Say what the CLICK does in the `tooltip`**, not just what the value is — the tooltip is the only place a reader finds out before committing.
 
 **Never repeat a value across slots.** If it appears in `source`, it does not also appear in `description` or as a tag.
 

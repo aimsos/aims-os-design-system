@@ -146,6 +146,17 @@ export interface UcpContact {
   phone:           string
   company:         string
   owner:           string
+  /**
+   * Where this record sits — one of CREATE_LOCATIONS.
+   *
+   * Added 2026-09-14, when Edit reused the Create form and found the form
+   * asking for something the record could not hold. Location was living
+   * inside `subtitle` as free text for some types and nowhere at all for
+   * others, which meant a create collected it and then dropped it on the
+   * floor. Optional because the fixtures predate the field and an absent
+   * location is a real state, not a blank to fill in.
+   */
+  location?:       string
   /** Lifecycle, and what the list filters on. */
   status:          UcpStatus
   /**
@@ -1931,13 +1942,28 @@ export function matchExistingRecords(draft: {
   name?:   string
   email?:  string
   phones?: string[]
+  /**
+   * The record being EDITED, excluded from its own duplicate check — 2026-09-14.
+   *
+   * Without this the check is guaranteed to fire the moment an edit form
+   * loads: the address in the field is, by definition, the address already on
+   * the record. The user would be told their contact duplicates itself, and
+   * on the email branch that BLOCKS, so nobody could save an edit at all.
+   *
+   * It is an id rather than a boolean because the rest of the check is still
+   * wanted — editing Sandra's address to David's should absolutely warn.
+   */
+  excludeId?: string
 }): CreateMatch | null {
   const email = norm(draft.email ?? "")
   const name  = norm(draft.name  ?? "")
   const phones = (draft.phones ?? []).map(digits).filter(p => p.length >= 7)
+  /* The pool this check runs against — everything except the record being
+     edited, which is never its own duplicate. */
+  const pool = CONTACTS.filter(c => c.id !== draft.excludeId)
 
   if (email.includes("@")) {
-    const hit = CONTACTS.filter(c => norm(c.email) === email)
+    const hit = pool.filter(c => norm(c.email) === email)
     if (hit.length > 0) {
       const archived = hit.every(c => c.status === "Archived")
       return {
@@ -1950,7 +1976,7 @@ export function matchExistingRecords(draft: {
   }
 
   if (phones.length > 0) {
-    const hit = CONTACTS.filter(c => phones.includes(digits(c.phone)))
+    const hit = pool.filter(c => phones.includes(digits(c.phone)))
     if (hit.length > 0) {
       return { kind: "phone", records: hit, on: hit[0].phone, blocks: false }
     }
@@ -1959,7 +1985,7 @@ export function matchExistingRecords(draft: {
   // Three characters is the floor: "Li" matches half a roster and the card
   // would fire on the second keystroke of every name.
   if (name.length >= 3) {
-    const hit = CONTACTS.filter(c => norm(c.name) === name)
+    const hit = pool.filter(c => norm(c.name) === name)
     if (hit.length > 0) {
       return { kind: "name", records: hit, on: draft.name!.trim(), blocks: false }
     }
@@ -1968,7 +1994,7 @@ export function matchExistingRecords(draft: {
   // Last, and only when nothing above matched — this is the good news case.
   const domain = email.split("@")[1]
   if (domain && domain.includes(".")) {
-    const hit = CONTACTS.filter(c => norm(c.email).endsWith(`@${domain}`))
+    const hit = pool.filter(c => norm(c.email).endsWith(`@${domain}`))
     if (hit.length > 0) {
       const company = hit.find(c => c.type === "company")
       return {
