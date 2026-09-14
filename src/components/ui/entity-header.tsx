@@ -451,6 +451,37 @@ export interface SecondaryMetadataItem {
   text: string
   /** Field label + context. Required: the tooltip shows even when `text` is not truncated. */
   tooltip: string
+  /**
+   * Makes this one item actionable — Michael, 2026-09-11.
+   *
+   * MOST METADATA IS NOT. This row is display-only by definition, and that is
+   * still the default: pass nothing and the item renders exactly as before.
+   * `onClick` is for the few values that NAME A CHANNEL rather than describe
+   * the entity — an email address, a phone number. Those are not facts you
+   * read, they are the thing you were about to go and use, and the row is
+   * where the reader already is.
+   *
+   * A COUNT IS NEVER ACTIONABLE. "10 facts" is a number about this record;
+   * clicking it has no obvious meaning, so inventing one makes every item in
+   * the row ambiguous. If you cannot say in three words what the click does,
+   * it does not get an `onClick`.
+   *
+   * WHAT IT MUST NOT DO: send anything. An actionable metadata item opens the
+   * surface where the action is composed and governed — the record's agent
+   * panel. The agent executes, the human governs; a row that fires an email
+   * on one click has skipped the half that matters.
+   *
+   * The item renders as a real `<button>` with the DS Link type style — and
+   * the UNDERLINE ONLY, never the link's blue. Blue in this row would read as
+   * a state, competing with the state badge and the signal tags two rows up,
+   * and it would make one metadata item louder than the record's own status.
+   * The underline is enough to say "this responds"; the colour stays the same
+   * as its neighbours, which is what keeps the row a row.
+   *
+   * Say what the click does in `tooltip`, not just what the value is: the
+   * tooltip is the only place a reader can find out before committing.
+   */
+  onClick?: () => void
 }
 
 /**
@@ -1790,16 +1821,47 @@ function EntityHeader({
                       looks like the real value and misleads. The icon never
                       appears alone: this row hides an item entirely before it
                       strips the text off one. */}
-                  <span
-                    data-roving
-                    tabIndex={metaGroup.index === i ? 0 : -1}
-                    className={cn("inline-flex items-center gap-[4px] min-w-0 text-[12px] max-w-[24ch]", FOCUS_RING)}
-                  >
-                    <ItemIcon size={14} strokeWidth={1.75} style={{ color: "var(--color-icon-neutral-dark)" }} />
-                    <span className="block truncate text-[12px] font-medium" style={{ color: "var(--color-text-body)" }}>
-                      {item.text}
+                  {/* An actionable item is a real <button>; a plain one stays
+                      a <span>. Same element tree either way, so the two sit on
+                      the same baseline in the same row — the only difference a
+                      reader sees is the underline. */}
+                  {item.onClick ? (
+                    <button
+                      type="button"
+                      data-roving
+                      tabIndex={metaGroup.index === i ? 0 : -1}
+                      onClick={item.onClick}
+                      className={cn(
+                        "inline-flex items-center gap-[4px] min-w-0 text-[12px] max-w-[24ch] cursor-pointer bg-transparent border-0 p-0 text-left",
+                        FOCUS_RING,
+                      )}
+                    >
+                      <ItemIcon size={14} strokeWidth={1.75} style={{ color: "var(--color-icon-neutral-dark)" }} />
+                      {/* DS Link type style — `Link NEW/S/Regular` is 12px,
+                          Medium, underlined. The weight and size already match
+                          this row, so what the link contributes is the
+                          underline, and ONLY the underline: the colour stays
+                          `--color-text-body` like every other item. The offset
+                          keeps the rule off the descenders in an address. */}
+                      <span
+                        className="block truncate text-[12px] font-medium underline underline-offset-[3px]"
+                        style={{ color: "var(--color-text-body)", textDecorationThickness: "0.5px" }}
+                      >
+                        {item.text}
+                      </span>
+                    </button>
+                  ) : (
+                    <span
+                      data-roving
+                      tabIndex={metaGroup.index === i ? 0 : -1}
+                      className={cn("inline-flex items-center gap-[4px] min-w-0 text-[12px] max-w-[24ch]", FOCUS_RING)}
+                    >
+                      <ItemIcon size={14} strokeWidth={1.75} style={{ color: "var(--color-icon-neutral-dark)" }} />
+                      <span className="block truncate text-[12px] font-medium" style={{ color: "var(--color-text-body)" }}>
+                        {item.text}
+                      </span>
                     </span>
-                  </span>
+                  )}
                 </Tooltip>
               )
             })}

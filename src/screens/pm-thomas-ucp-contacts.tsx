@@ -20,7 +20,7 @@
  * leaving the list.
  */
 
-import { useMemo, useRef, useState } from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { ScreenLayout }      from "@/components/layouts/screen-layout"
 import { Header }            from "@/components/ui/header"
@@ -279,28 +279,120 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
  * and the footer's Cancel. `Header` carries a title and `backButton` only; the
  * flow completes in the footer and never in the bar.
  */
+/**
+ * What an edit produces. A PATCH, not a whole contact: this flow touches the
+ * handful of fields a person types, and a record carries a great deal more —
+ * its planes, its signals, its activity, its agent. Returning a full
+ * `UcpContact` would mean this form inventing values for all of it, and the
+ * first thing it would invent is a governance state.
+ */
+export interface EditPatch {
+  name?:     string
+  email?:    string
+  phone?:    string
+  location?: string
+  owner?:    string
+}
+
+/** The single-value fields, read off the record into the form's shape. */
+function seedValues(c: UcpContact): Record<string, string> {
+  return {
+    name:     c.name,
+    email:    c.email,
+    /* An absent location seeds an empty Select rather than a guess. The field
+       is required by CREATE_FIELDS, so the flow asks for it on the way past —
+       which is the right moment: somebody correcting a record is the person
+       who knows where it belongs. */
+    location: c.location ?? "",
+    owner:    c.owner,
+  }
+}
+
+/**
+ * The repeatable fields. The fixtures carry ONE phone and ONE address per
+ * record, so a seeded list is a single row — which is correct rather than a
+ * limitation: the form is showing what the record actually holds, and the Add
+ * button is right there for the second one.
+ *
+ * Both keys are seeded regardless of type. A person has no `emails` field and
+ * a company has no `email` one, and `stepFields` renders only what the type
+ * declares — so the unused key costs nothing and the alternative is a branch
+ * that has to be kept in step with CREATE_FIELDS.
+ */
+function seedLists(c: UcpContact): Record<string, string[]> {
+  return {
+    phones: c.phone ? [c.phone] : [""],
+    emails: c.email ? [c.email] : [""],
+  }
+}
+
 const WIZARD_STEPS = ["Identity", "Details", "Review"] as const
 
+/**
+ * ── Editing reuses this flow, it does not get one of its own ────────────────
+ *
+ * Michael, 2026-09-14: "debe seguir la misma estructura de create contact pero
+ * con los datos del contacto."
+ *
+ * A second wizard is the tempting build and it is the wrong one. The fields a
+ * record needs do not change because it already exists — a person still has a
+ * name, an address, numbers, a location and an owner — so a separate edit form
+ * is the same form maintained twice, and the two drift the first time someone
+ * adds a field to one of them. `CREATE_FIELDS` is the single declaration of
+ * what a type is made of, and edit reads it too.
+ *
+ * FOUR THINGS CHANGE, and each because editing genuinely differs from
+ * creating, never because "it is a different screen":
+ *
+ *  1. THE TYPE IS FIXED. A person does not become a company. Step 1's type
+ *     picker is not merely disabled but gone — a control nobody may use is
+ *     worse than no control, because it has to be tried before it is
+ *     understood.
+ *  2. THE FIELDS ARRIVE FULL, seeded from the record, including every phone
+ *     row and which one is primary.
+ *  3. THE DUPLICATE CHECK EXCLUDES THIS RECORD. Without that, the check fires
+ *     on load against the record's own address, and since the email branch
+ *     BLOCKS, nobody could save an edit at all. Matches against OTHER records
+ *     still fire, which is the point.
+ *  4. THE WORDS. "Edit Sandra Torres", "Save changes", and a Review step that
+ *     says what is about to change rather than what is about to exist.
+ */
 function CreateContactWizard({
-  lockedType, onCancel, onCreate, onOpenRecord,
+  lockedType, editing, onCancel, onCreate, onSave, onOpenRecord,
 }: {
   /** The tab the user pressed the CTA on, when it names a creatable type. */
   lockedType:   UcpEntityType | null
+  /** The record being edited. `null` is the ordinary create. */
+  editing:      UcpContact | null
   onCancel:     () => void
   onCreate:     (type: UcpEntityType, name: string) => void
+  /** Edit only — the patch to apply, and the record it applies to. */
+  onSave:       (id: string, patch: EditPatch) => void
   /** The duplicate card's way out: open the record that already exists. */
   onOpenRecord: (id: string) => void
 }) {
   const [step,   setStep]   = useState<0 | 1 | 2>(0)
   const [type,   setType]   = useState<UcpEntityType>(
-    lockedType && CREATABLE_TYPES.includes(lockedType) ? lockedType : "person",
+    editing ? editing.type
+      : lockedType && CREATABLE_TYPES.includes(lockedType) ? lockedType : "person",
   )
-  const [values, setValues] = useState<Record<string, string>>({})
+  /* Seeded once, on mount. Not a useEffect syncing to `editing`: the record is
+     fixed for the life of this flow, and an effect that re-seeds would throw
+     away everything typed the moment anything upstream re-rendered. */
+  /* The seed, kept as a reference so `hadValue` can ask what the record
+     ARRIVED with rather than what the form currently holds. A ref, not state:
+     it never changes for the life of the flow and nothing should re-render
+     because of it. */
+  const seededValues = useRef(editing ? seedValues(editing) : {}).current
+  const seededLists  = useRef(editing ? seedLists(editing)  : {}).current
+  const [values, setValues] = useState<Record<string, string>>(() => ({ ...seededValues }))
   const [tried,  setTried]  = useState(false)
   /** Every repeatable field's rows, keyed by field. Each starts as a single
    *  empty row — an optional field still shows one line, or nobody discovers
    *  it is there. */
-  const [lists, setLists] = useState<Record<string, string[]>>({})
+  const [lists, setLists] = useState<Record<string, string[]>>(
+    () => Object.fromEntries(Object.entries(seededLists).map(([k, v]) => [k, [...v]])),
+  )
   /** Which row of each list is primary. */
   const [primaries, setPrimaries] = useState<Record<string, number>>({})
 
@@ -344,24 +436,57 @@ function CreateContactWizard({
    * COMPLETE, and a blur-triggered check has by then let the user move to the
    * next field and start filling in a record that will not be created.
    */
-  const match: CreateMatch | null = useMemo(
+  const rawMatch: CreateMatch | null = useMemo(
     /* The email a company types into its repeatable list counts for the
        duplicate check exactly as a person's single field does — the primary
        one, since that is the address the record will be known by. */
     () => matchExistingRecords({
-      name:   values.name,
-      email:  values.email ?? filledOf("emails")[primaryOf("emails")],
+      name:      values.name,
+      email:     values.email ?? filledOf("emails")[primaryOf("emails")],
       phones,
+      excludeId: editing?.id,
     }),
-    [values.name, values.email, lists, primaries, phones],
+    [values.name, values.email, lists, primaries, phones, editing],
   )
+  /*
+    THE DOMAIN MATCH IS A CREATE-ONLY CARD. It is the good-news case — "four
+    records share meridian.com, the new contact will be linked to Meridian
+    Corp" — and every word of that is about a record coming into existence.
+    Sandra Torres has belonged to Meridian for months; telling her editor that
+    she is about to be linked to it is both wrong and noise on the one screen
+    where they came to change something specific.
+
+    The other three kinds survive, because they are real collisions and they
+    are exactly what an edit can cause: retyping an address into one another
+    record already holds is the mistake this check exists for.
+  */
+  const match = editing && rawMatch?.kind === "domain" ? null : rawMatch
   const blocked = match?.blocks === true
 
-  const missingIn = (i: 0 | 1) => stepFields(i).filter(f =>
-    f.optional ? false
-      : f.kind === "repeat" ? rowsOf(f.key).every(v => v.trim() === "")
-      : (values[f.key] ?? "").trim() === "",
-  )
+  /*
+    ── What "required" means when you are editing ────────────────────────────
+    On a create, required means "this record cannot exist without it". On an
+    edit the record already exists, so the same rule would hold a correction
+    hostage to a field it never had — `location` arrived on 2026-09-14 and is
+    empty on every fixture, so changing a phone number would have demanded a
+    location nobody was asked for.
+
+    So editing asks a narrower question: you may not EMPTY a value that was
+    there, and you need not supply one that never was. Anything the record
+    arrived with stays required; anything it arrived without is a field you
+    may fill on the way past, or leave.
+  */
+  const hadValue = (f: CreateField) =>
+    f.kind === "repeat" ? (seededLists[f.key] ?? []).some(v => v.trim() !== "")
+      : (seededValues[f.key] ?? "").trim() !== ""
+
+  const missingIn = (i: 0 | 1) => stepFields(i).filter(f => {
+    if (f.optional) return false
+    if (editing && !hadValue(f)) return false
+    return f.kind === "repeat"
+      ? rowsOf(f.key).every(v => v.trim() === "")
+      : (values[f.key] ?? "").trim() === ""
+  })
   const missing = missingIn(step === 2 ? 1 : (step as 0 | 1))
 
   /* Identity cannot be left with a KNOWN duplicate. The two email cases are
@@ -588,8 +713,15 @@ function CreateContactWizard({
       header={() => (
         <Header
           size="size-l"
-          title={`New ${TYPE_LABEL[type].toLowerCase()}`}
-          description="A record created here has no source system. Its facts start on the Sandbox Plane and are promoted as they are verified."
+          title={editing ? `Edit ${editing.name}` : `New ${TYPE_LABEL[type].toLowerCase()}`}
+          /* The create copy explains where a NEW record's facts start, which
+             is true of a create and false of an edit — this record's facts
+             have a history and some of them are already on Truth. What an
+             editor needs to know instead is that correcting a governed value
+             re-opens it, which is the actual consequence of saving. */
+          description={editing
+            ? "Changing a value here re-opens it on the Sandbox Plane. It returns to Truth once a source confirms the new value."
+            : "A record created here has no source system. Its facts start on the Sandbox Plane and are promoted as they are verified."}
           backButton
           onBack={onCancel}
         />
@@ -609,6 +741,13 @@ function CreateContactWizard({
               Governance, a fleet asset comes off the DMS sync. They keep
               their roster tabs — the records exist — and lose the claim that
               this form is where they come from. */}
+          {/* THE TYPE PICKER IS GONE WHEN EDITING, not disabled. A person does
+              not become a company, so there is no choice here — and a control
+              nobody may use is worse than no control, because it has to be
+              tried before it is understood. What the record IS still shows:
+              the Header says "Edit Sandra Torres" and the fields below are
+              the ones a person has. */}
+          {!editing && (
           <div>
             <FormLabel hint="What kind of record this is. It decides the fields and the icon it carries everywhere after.">
               What are you creating?
@@ -629,9 +768,13 @@ function CreateContactWizard({
               ))}
             </div>
           </div>
+          )}
 
           {/* The edge case, on the stage that can still act on it — and it
-              gates this stage rather than the final button. */}
+              gates this stage rather than the final button. When editing, the
+              record itself is excluded from the check, so anything shown here
+              is a collision with a DIFFERENT record — which is exactly when
+              somebody retyping an address needs to be stopped. */}
           {match && <DuplicateCard match={match} onOpenRecord={onOpenRecord} />}
 
           {stepFields(0).map(field)}
@@ -671,7 +814,9 @@ function CreateContactWizard({
       {step === 2 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720 }}>
           <div>
-            <FormLabel hint="This is the record that gets written, and where its facts land.">Review</FormLabel>
+            <FormLabel hint={editing
+              ? "This is how the record will read once it is saved. Only what you changed is re-opened."
+              : "This is the record that gets written, and where its facts land."}>Review</FormLabel>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <ReviewRow icon={TYPE_ICON[type]} variant="informative" label={TYPE_LABEL[type]}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-title)" }}>{name}</span>
@@ -707,8 +852,14 @@ function CreateContactWizard({
                   </ReviewRow>
                 )
               })}
-              <ReviewRow icon="MapPin" variant="neutral" label={byKey("location")?.label ?? "Location"}>
-                <Tag variant="neutral" size="sm">{values.location}</Tag>
+              {/* An empty location renders a sentence, not an empty Tag. A Tag
+                  with nothing in it is a stray pill the reader has to decode —
+                  and on an edit it is the common case, because the field is
+                  newer than every record in the fixture. */}
+              <ReviewRow icon="MapPin" variant={values.location ? "neutral" : "yellow"} label={byKey("location")?.label ?? "Location"}>
+                {values.location
+                  ? <Tag variant="neutral" size="sm">{values.location}</Tag>
+                  : <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>Not recorded</span>}
               </ReviewRow>
               <ReviewRow icon="User" variant={values.owner ? "neutral" : "yellow"} label="Account owner">
                 {values.owner
@@ -723,11 +874,17 @@ function CreateContactWizard({
               stage that states consequences. */}
           {match?.kind === "domain" && <DuplicateCard match={match} onOpenRecord={onOpenRecord} />}
 
+          {/* The same governance point, said for the situation the reader is
+              actually in. On a create every fact is new; on an edit most of
+              the record is untouched and only what changed loses its status,
+              and saying otherwise would overstate the cost of a correction. */}
           <InformativeCard
             state="informative"
             size="sm"
-            title="Everything here starts on the Sandbox Plane"
-            description={`Nothing typed into a form is attested. ${name || "This record"}'s facts are candidate claims until a source corroborates them or a domain owner confirms them — until then an agent can cite them and cannot treat them as true.`}
+            title={editing ? "What you changed goes back to the Sandbox Plane" : "Everything here starts on the Sandbox Plane"}
+            description={editing
+              ? `Fields you did not touch keep the status they have. A value you changed becomes a candidate claim again until a source corroborates it — until then an agent can cite it and cannot treat it as true.`
+              : `Nothing typed into a form is attested. ${name || "This record"}'s facts are candidate claims until a source corroborates them or a domain owner confirms them — until then an agent can cite them and cannot treat them as true.`}
           />
         </div>
       )}
@@ -744,10 +901,28 @@ function CreateContactWizard({
             cancelLabel="Cancel"
             onCancel={onCancel}
             onBack={() => setStep(s => Math.max(0, s - 1) as 0 | 1 | 2)}
-            nextLabel={step === 2 ? `Create ${TYPE_LABEL[type].toLowerCase()}` : "Next"}
+            nextLabel={step === 2
+              ? (editing ? "Save changes" : `Create ${TYPE_LABEL[type].toLowerCase()}`)
+              : "Next"}
             nextDisabled={step < 2 && !canContinue && tried}
             onNext={() => {
-              if (step === 2) { onCreate(type, name); return }
+              if (step === 2) {
+                if (editing) {
+                  onSave(editing.id, {
+                    name:     values.name,
+                    /* A company's mail lives in the repeatable list and a
+                       person's in a single field; the patch carries whichever
+                       this type actually has, and the PRIMARY row when it is a
+                       list — that is the address the record is known by. */
+                    email:    values.email ?? filledOf("emails")[primaryOf("emails")],
+                    phone:    filledOf("phones")[primaryOf("phones")],
+                    location: values.location,
+                    owner:    values.owner,
+                  })
+                  return
+                }
+                onCreate(type, name); return
+              }
               if (!canContinue) { setTried(true); return }
               setTried(false)
               setStep(s => Math.min(2, s + 1) as 0 | 1 | 2)
@@ -1164,6 +1339,39 @@ export default function PMThomasUcpContactsScreen() {
   const kebabDropdown = useDropdownPosition(kebab?.anchor ?? null)
   const [archiving,  setArchiving]  = useState<UcpContact | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
+  /** The record being edited, or null. The roster owns this flow the same way
+   *  it owns Create — both take over the whole screen, and the screen that
+   *  routes is the one that knows how to come back. */
+  const [editing,    setEditing]    = useState<UcpContact | null>(null)
+
+  /*
+    ── Where an edit actually lands ─────────────────────────────────────────
+    `CONTACTS` is a frozen fixture, so a saved edit is held here as a patch
+    per record and applied on read. That is a prototype answer, and a
+    deliberate one: the alternative is mutating the module array, which would
+    leak between prototypes sharing this data and survive a navigation nobody
+    asked it to survive. This lives and dies with the screen, which is what a
+    prototype should do.
+
+    Applied in ONE place — `withEdits` — and every read goes through it, so
+    the roster row, the preview and the profile cannot disagree about what a
+    record says.
+  */
+  const [edits, setEdits] = useState<Record<string, EditPatch>>({})
+  const withEdits = useCallback(
+    (c: UcpContact): UcpContact => {
+      const patch = edits[c.id]
+      if (!patch) return c
+      /* Empty strings are dropped, not written: an optional field left blank
+         in the form means "no change I am declaring here", and blanking a
+         record's owner by tabbing past it is not an edit anybody intended. */
+      const clean = Object.fromEntries(
+        Object.entries(patch).filter(([, v]) => typeof v === "string" && v.trim() !== ""),
+      )
+      return { ...c, ...clean }
+    },
+    [edits],
+  )
 
   const activeType = ALL_TYPE_TABS.find(t => t.id === tab)?.type ?? "all"
 
@@ -1174,8 +1382,14 @@ export default function PMThomasUcpContactsScreen() {
    *  see CONTACT_TYPES for why a fleet asset in a contacts list is the repair
    *  order problem over again. */
   const inType = useMemo(
-    () => CONTACTS.filter(c => activeType === "all" ? CONTACT_TYPES.includes(c.type) : c.type === activeType),
-    [activeType],
+    /* Edits are applied HERE, at the top of the pipeline, so the filters, the
+       counts, the search and the sort all run on what the record now says. A
+       row that still showed the old address while the profile showed the new
+       one would be the same bug the single `withEdits` exists to prevent. */
+    () => CONTACTS
+      .filter(c => activeType === "all" ? CONTACT_TYPES.includes(c.type) : c.type === activeType)
+      .map(withEdits),
+    [activeType, withEdits],
   )
 
   const filtered = useMemo(() => inType.filter(c => {
@@ -1244,10 +1458,40 @@ export default function PMThomasUcpContactsScreen() {
      see and click is the panel it stopped being. It is checked BEFORE the
      profile so that a duplicate card's "Open Sandra Torres" leaves the flow
      and lands on the record, rather than opening it behind the wizard. */
+  /* EDIT IS THE SAME FLOW, so it is the same component and the same branch
+     shape. It is checked FIRST because `editing` and `openId` are both set
+     while an edit is open — the record has to be known in order to come back
+     to it — and the wizard is what should be on screen until it is done. */
+  if (editing) {
+    return (
+      <CreateContactWizard
+        lockedType={editing.type}
+        editing={editing}
+        onCancel={() => setEditing(null)}
+        onOpenRecord={id => { setEditing(null); setOpenId(id) }}
+        onCreate={() => {}}
+        onSave={(id, patch) => {
+          setEdits(m => ({ ...m, [id]: { ...(m[id] ?? {}), ...patch } }))
+          setEditing(null)
+          /* Back to the record, not to the roster. The Create pattern's
+             landing rule is that a full-page flow navigates to the object it
+             produced — and for an edit that object is the record you came
+             from, which is also the only place the change is visible. */
+          setOpenId(id)
+          toast.success(`${patch.name ?? editing.name} updated`, {
+            description: "The fields you changed are back on the Sandbox Plane until a source confirms them.",
+          })
+        }}
+      />
+    )
+  }
+
   if (createOpen) {
     return (
       <CreateContactWizard
         lockedType={activeType === "all" ? null : activeType}
+        editing={null}
+        onSave={() => {}}
         onCancel={() => setCreateOpen(false)}
         onOpenRecord={id => { setCreateOpen(false); setOpenId(id) }}
         /* Every create ends in a toast — the Create pattern is explicit that a
@@ -1270,7 +1514,8 @@ export default function PMThomasUcpContactsScreen() {
   if (open) {
     return (
       <UcpProfileView
-        contact={open}
+        contact={withEdits(open)}
+        onEdit={c => setEditing(c)}
         onBack={() => setOpenId(null)}
         onSidebarItemClick={id => { if (id === "contacts") setOpenId(null) }}
         // A company's People tab opens one of its records. Navigation stays
