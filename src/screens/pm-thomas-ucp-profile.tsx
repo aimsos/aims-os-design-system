@@ -3739,13 +3739,15 @@ function RestrictedBody({ name, scope }: { name: string; scope: string }) {
 // ── Profile view ──────────────────────────────────────────────────────────────
 
 export function UcpProfileView({
-  contact, onBack, onSidebarItemClick, onOpenRecord,
+  contact, onBack, onSidebarItemClick, onOpenRecord, onEdit,
 }: {
   contact: UcpContact
   onBack?: () => void
   onSidebarItemClick?: (id: string) => void
   /** Opening a person from a company's People tab. The roster owns navigation. */
   onOpenRecord?: (c: UcpContact) => void
+  /** Edit this record. The roster owns the flow, the same way it owns Create. */
+  onEdit?: (c: UcpContact) => void
 }) {
   const [tab,        setTab]        = useState("overview")
   const [actGroup,   setActGroup]   = useState<ActivityGroup | "all">("all")
@@ -4254,7 +4256,17 @@ export function UcpProfileView({
            action, and the header is better with an empty slot than with a
            button nobody asked for. `Ask` remains the one CTA. */
         /* Destructive and secondary only — Archive is never one click away. */
-        menuActions={[{ label: "Archive", onClick: () => {} }]}
+        /* EDIT FIRST, ARCHIVE SECOND — Michael, 2026-09-14.
+           CLAUDE.md's kebab rule is that the menu holds the destructive and
+           the secondary, never the page's main action, and Edit is squarely
+           the second of those: a record is read far more often than it is
+           corrected. It goes above Archive because it is the reversible one,
+           and because a menu that opens with Archive under the cursor is a
+           menu one slip from removing the record. */
+        menuActions={[
+          ...(onEdit ? [{ label: "Edit", onClick: () => onEdit(contact) }] : []),
+          { label: "Archive", onClick: () => {} },
+        ]}
       />
       {/* NO Next Best Action card. It sat here, below the header and in its own
           container, which is where the DS says a recommendation goes. Michael
