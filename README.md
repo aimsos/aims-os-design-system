@@ -55,7 +55,7 @@ This is an additional distribution channel on top of the automatic project-scope
 | Path | Who | Enforcement |
 |---|---|---|
 | `src/screens/pm-[name].tsx` | Anyone | Freely create/edit — this is the whole point |
-| `src/components/`, `src/App.tsx`, `src/index.css`, `src/lib/`, `tailwind.config.*`, `CLAUDE.md` | Michael (`@cachilupis`) only | `.github/CODEOWNERS` blocks merge without his review, regardless of who authored the PR |
+| `src/components/`, `src/App.tsx`, `src/index.css`, `src/lib/`, `tailwind.config.*`, `CLAUDE.md` | Michael (`@michaelorellana-design`) only | `.github/CODEOWNERS` blocks merge without his review, regardless of who authored the PR |
 
 `.claude/`, `.claude-plugin/`, and `README.md` aren't CODEOWNERS-protected — low-risk doc/tooling changes there can merge without waiting on review.
 
