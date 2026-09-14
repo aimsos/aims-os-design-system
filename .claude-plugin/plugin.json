@@ -3,7 +3,7 @@
   "description": "Generates a complete, working PM prototype screen for the AIMS OS Design System repo from a plain-language description — composes it from real DS components following the repo's rules, registers it in the Prototypes gallery, verifies it, and ships it as a branch + PR. Use for any request to prototype, generate, or add a screen/view/dashboard/list/queue/flow to this repo's Prototypes section.",
   "version": "1.0.0",
   "author": {
-    "name": "cachilupis"
+    "name": "AIMS OS"
   },
   "license": "UNLICENSED",
   "keywords": ["aims-os", "design-system", "prototyping", "screens", "pm-workflow"],

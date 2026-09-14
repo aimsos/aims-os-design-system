@@ -1229,11 +1229,18 @@ The screen appears in the "Prototypes" sidebar group and opens full-screen (no D
 1. `npx tsc -b --noEmit` → 0 errors (catches type mistakes)
 2. Take a browser screenshot of the screen on `localhost:5173` → compare against the DS pattern page for the same pattern. TypeScript passing ≠ screen rendering correctly.
 3. Check every tab of the screen in the screenshot: Overview uses `WidgetCanvasSection`, Workers uses `ListViewSection`, Logs shows `Pagination`.
-4. Get Michael's visual sign-off **before the PR is merged** — on the PR's own
-   Vercel preview, or on localhost. This used to read "before pushing to
-   production", which stopped being the right gate when the site started
-   following `main` automatically (see *Publishing the site* below): merging
-   IS publishing now, so the review has to happen while the PR is still open.
+4. Get Michael's visual sign-off **before the PR is merged**. Merging IS
+   publishing (see *Publishing the site* below), so the review has to happen
+   while the PR is still open.
+
+   **There is no per-PR preview URL any more** — the repo moved to the AIMS OS
+   org on 2026-09-11 and Vercel did not come with it. So the review happens on
+   `npm run dev`, and **you** drive it: take screenshots of the screens you
+   changed, in every tab and state you touched, and put them in front of him.
+   Never ask him to run a dev server to check your work — he is Product
+   Design, not the build. If a stakeholder outside the repo needs to see it,
+   say so out loud: that now requires either a merge or the preview hosting
+   being restored, and neither is a decision to make silently.
 
 ---
 
@@ -1266,9 +1273,9 @@ Three separate places, and merging only reaches the second one:
 
 | Where | What it is | Changes when |
 |---|---|---|
-| A branch | Work in progress | You push to it. Every PR also gets its own **Vercel preview** — that is the link to review |
+| A branch | Work in progress | You push to it. **No preview URL** — see below |
 | **`main`** | The agreed code | A PR is merged |
-| **The site** — <https://cachilupis.github.io/aims-os-design-system/> | The built HTML/JS on GitHub Pages | Automatically, on every push to `main` |
+| **The site** — <https://aimsos.github.io/aims-os-design-system/> | The built HTML/JS on GitHub Pages | Automatically, on every push to `main` |
 
 **A merge to `main` publishes the site.** The `deploy` job in
 `.github/workflows/design-system-checks.yml` builds with `GH_PAGES=true` and
@@ -1281,14 +1288,33 @@ work goes to the official site with nothing to warn you. The script stays in
 `package.json` for a genuine emergency (CI down and the site must move); if you
 use it, `git checkout main && git pull` first, without exception.
 
-**The deploy build is a second build on purpose.** `checks` builds for Vercel,
-which serves from the domain root; Pages serves from `/aims-os-design-system/`,
-which is what `GH_PAGES=true` switches on. The two outputs are not
-interchangeable, so the artifact cannot be shared between the jobs.
+**The repo lives at `aimsos/aims-os-design-system` since 2026-09-11.** It moved
+out of Michael's personal account into the AIMS OS org; the old
+`cachilupis/aims-os-design-system` is archived. Every branch came across at the
+same commit and the history is intact, but **the five PRs that were open at the
+time did not** — their branches are here, the PR threads are not, so those get
+reopened against this repo when their work is wanted.
+
+**The deploy build is a second build on purpose.** `checks` builds for the
+domain root; Pages serves from `/aims-os-design-system/`, which is what
+`GH_PAGES=true` switches on. The two outputs are not interchangeable, so the
+artifact cannot be shared between the jobs.
 
 **CI cannot tell you whether a screen looks right** — it type-checks, builds and
-audits. A visually broken screen that compiles will publish. That is what the
-per-PR Vercel preview is for, and why the sign-off moved to before the merge.
+audits. A visually broken screen that compiles will publish. That is why the
+sign-off moved to before the merge.
+
+**THE MOVE COST US THE PER-BRANCH PREVIEW, and that is a real loss, not a
+detail.** Vercel built every PR at its own URL, which is what let Michael
+review a flow, and share it with a PM or with Thom, without anyone installing
+anything. What is left is `npm run dev` — which only reaches people with the
+repo cloned — or merging, which publishes to everyone before it has been
+looked at. That inverts the order the sign-off rule above depends on.
+
+Until preview hosting is restored, the gate holds only because Claude carries
+it: screenshots of what changed, before the merge, unprompted. If you find
+yourself typing "check it on localhost", stop — that is the rule failing, not
+being followed.
 
 ---
 

@@ -1,10 +1,21 @@
-# DS core — requires @cachilupis review before merge
-/src/components/       @cachilupis
-/src/App.tsx           @cachilupis
-/src/index.css         @cachilupis
-/src/lib/              @cachilupis
-/tailwind.config.*     @cachilupis
-CLAUDE.md              @cachilupis
+# DS core — requests @michaelorellana-design's review on any PR that touches it.
+#
+# The handle changed with the repo move to the AIMS OS org (2026-09-11).
+# @cachilupis has no access here, and GitHub silently IGNORES a CODEOWNERS
+# entry naming someone who cannot write to the repo — so the old handle was
+# not a stale label, it was this file doing nothing at all.
+#
+# NOTE ON "before merge": this file REQUESTS a review, it does not require
+# one. Requiring it needs branch protection on `main` with "Require review
+# from Code Owners" switched on, and this repo has no branch protection at
+# all. Neither did the old one, so nothing was lost in the move — but the
+# README and CLAUDE.md both claimed this "blocks merge", and it never has.
+/src/components/       @michaelorellana-design
+/src/App.tsx           @michaelorellana-design
+/src/index.css         @michaelorellana-design
+/src/lib/              @michaelorellana-design
+/tailwind.config.*     @michaelorellana-design
+CLAUDE.md              @michaelorellana-design
 
 # PM prototype screens — any collaborator can merge
 # /src/screens/  (no owner = no required review)

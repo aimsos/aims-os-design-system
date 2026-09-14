@@ -5058,7 +5058,7 @@ function HomePage() {
 
               <div className="flex flex-col gap-[18px]">
                 <NumberedStep n={1} title="Michael adds the PM as a collaborator">
-                  <p className="text-[13px] text-[var(--field-supporting)] leading-[1.5]">On GitHub: <code className="px-[4px] py-[1px] rounded text-[11px]" style={{ background: "var(--field-bg)", border: "0.5px solid var(--field-border)" }}>cachilupis/aims-os-design-system</code> → Settings → Collaborators → Add people → enter the PM's GitHub email or username. The PM will receive an invitation email. Needed for both options below.</p>
+                  <p className="text-[13px] text-[var(--field-supporting)] leading-[1.5]">On GitHub: <code className="px-[4px] py-[1px] rounded text-[11px]" style={{ background: "var(--field-bg)", border: "0.5px solid var(--field-border)" }}>aimsos/aims-os-design-system</code> → Settings → Collaborators → Add people → enter the PM's GitHub email or username. The PM will receive an invitation email. Needed for both options below.</p>
                 </NumberedStep>
 
                 <NumberedStep n={2} title="Install / open Claude Code">
@@ -5084,7 +5084,7 @@ function HomePage() {
                       <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>Option A — Terminal</p>
                       <div className="rounded-md px-[14px] py-[10px]" style={{ background: "var(--field-bg)", border: "0.5px solid var(--field-border)" }}>
                         <p className="text-[12px] font-mono leading-[1.8]" style={{ color: "var(--field-supporting)" }}>
-                          git clone https://github.com/cachilupis/aims-os-design-system<br/>
+                          git clone https://github.com/aimsos/aims-os-design-system<br/>
                           cd aims-os-design-system<br/>
                           npm install
                         </p>
@@ -5095,7 +5095,7 @@ function HomePage() {
                     </div>
                     <div className="flex flex-col gap-[8px]" style={{ borderTop: "0.5px solid var(--field-border)", paddingTop: 14 }}>
                       <p className="text-[13px] font-semibold" style={{ color: "var(--foreground)" }}>Option B — Desktop app or claude.ai/code</p>
-                      <p className="text-[13px] text-[var(--field-supporting)] leading-[1.5]">You'll be prompted to connect your GitHub account (a one-time authorization) and then select <code className="px-[4px] py-[1px] rounded text-[11px]" style={{ background: "var(--field-bg)", border: "0.5px solid var(--field-border)" }}>cachilupis/aims-os-design-system</code> from your repositories. There's no separate <code style={{ fontSize: 11 }}>npm install</code> step to run yourself — the environment sets up dependencies for you.</p>
+                      <p className="text-[13px] text-[var(--field-supporting)] leading-[1.5]">You'll be prompted to connect your GitHub account (a one-time authorization) and then select <code className="px-[4px] py-[1px] rounded text-[11px]" style={{ background: "var(--field-bg)", border: "0.5px solid var(--field-border)" }}>aimsos/aims-os-design-system</code> from your repositories. There's no separate <code style={{ fontSize: 11 }}>npm install</code> step to run yourself — the environment sets up dependencies for you.</p>
                     </div>
                   </div>
                 </NumberedStep>
@@ -5196,7 +5196,7 @@ function HomePage() {
 
                 <NumberedStep n={6} title="Open a Pull Request on GitHub">
                   <div className="flex flex-col gap-[8px]">
-                    <p className="text-[13px] text-[var(--field-supporting)] leading-[1.5]">After pushing, GitHub shows a yellow banner with a shortcut link. You can also go to <strong>github.com → cachilupis/aims-os-design-system → Pull requests → New pull request</strong>, select your branch, add a short description, and click <strong>Create pull request</strong>.</p>
+                    <p className="text-[13px] text-[var(--field-supporting)] leading-[1.5]">After pushing, GitHub shows a yellow banner with a shortcut link. You can also go to <strong>github.com → aimsos/aims-os-design-system → Pull requests → New pull request</strong>, select your branch, add a short description, and click <strong>Create pull request</strong>.</p>
                     <div className="rounded-md px-[14px] py-[10px]" style={{ background: "var(--field-bg)", border: "0.5px solid var(--field-border)" }}>
                       <p className="text-[12px] italic" style={{ color: "var(--field-supporting)" }}>Or ask Claude in the same session: "Open a PR for my branch with the title 'Add AI Workers list view'."</p>
                     </div>
@@ -5205,7 +5205,7 @@ function HomePage() {
 
                 <NumberedStep n={7} title="Merge and confirm your screen is live">
                   <div className="flex flex-col gap-[8px]">
-                    <p className="text-[13px] text-[var(--field-supporting)] leading-[1.5]">If your PR only touches <code className="px-[4px] py-[1px] rounded text-[11px]" style={{ background: "var(--field-bg)", border: "0.5px solid var(--field-border)" }}>src/screens/</code>, you can merge it yourself — no need to wait for Michael. Click <strong>Merge pull request</strong> on GitHub. Vercel deploys automatically within ~1 minute. Share the Vercel URL (see Part 3).</p>
+                    <p className="text-[13px] text-[var(--field-supporting)] leading-[1.5]">If your PR only touches <code className="px-[4px] py-[1px] rounded text-[11px]" style={{ background: "var(--field-bg)", border: "0.5px solid var(--field-border)" }}>src/screens/</code>, you can merge it yourself — no need to wait for Michael. Click <strong>Merge pull request</strong> on GitHub. Merging publishes the site automatically within ~2 minutes. Share that URL (see Part 3).</p>
                     <div className="rounded-md px-[14px] py-[11px]" style={{ background: "var(--color-surface-success-more-subtle)", border: "0.5px solid var(--color-surface-success-default)" }}>
                       <p className="text-[13px] leading-[1.5]" style={{ color: "var(--foreground)" }}><strong>If the merge is blocked:</strong> your PR touched a DS-owned file (components, tokens, App.tsx, or config). This is the safety net working as intended — not an error. Tag Michael in the PR; he reviews and approves.</p>
                     </div>
@@ -5229,7 +5229,7 @@ function HomePage() {
               <div className="flex flex-col gap-[18px]">
                 <NumberedStep n={1} title="Get the direct link for your prototype">
                   <div className="flex flex-col gap-[8px]">
-                    <p className="text-[13px] text-[var(--field-supporting)] leading-[1.5]">Once your prototype is pushed to GitHub and Vercel has rebuilt (usually under 1 minute), your direct link is:</p>
+                    <p className="text-[13px] text-[var(--field-supporting)] leading-[1.5]">Once your PR is <strong>merged into main</strong> and the site has rebuilt (usually under 2 minutes), your direct link is:</p>
                     <div className="rounded-md px-[14px] py-[10px]" style={{ background: "var(--field-bg)", border: "0.5px solid var(--field-border)" }}>
                       <p className="text-[12px] font-mono" style={{ color: "var(--primary)" }}>aimsos.github.io/aims-os-design-system/?proto=<strong>[your-prototype-id]</strong></p>
                     </div>
@@ -5509,7 +5509,7 @@ function HomePage() {
                       { actor: "PM",     step: "Describe the screen in Claude Code with concrete data, actions and states", icon: "2", color: "#2173ff" },
                       { actor: "Auto",   step: "Claude generates src/screens/pm-[name].tsx with real components + registers it in App.tsx", icon: "↓", color: "#9333ea" },
                       { actor: "PM",     step: "Validate at localhost:5173 → ask Claude for corrections if needed", icon: "3", color: "#2173ff" },
-                      { actor: "PM",     step: "Commit → push → open PR → merge → Vercel rebuilds automatically", icon: "4", color: "#2173ff" },
+                      { actor: "PM",     step: "Commit → push → open PR → merge → the site rebuilds automatically", icon: "4", color: "#2173ff" },
                       { actor: "PM",     step: "Share: aimsos.github.io/aims-os-design-system/?proto=[id] — stakeholders open directly", icon: "5", color: "#2173ff" },
                       { actor: "Design", step: "Michael reviews visually → approves or adjusts. CODEOWNERS protects DS files from accidental edits.", icon: "6", color: "#00a07e" },
                     ].map((item, i) => (
@@ -5617,7 +5617,7 @@ function HomePage() {
                     <p className="text-[13px] leading-[1.5]" style={{ color: "var(--field-supporting)" }}>It's also published as an installable plugin, for anyone who wants it outside this repo's automatic loading:</p>
                     <div className="rounded-md px-[14px] py-[10px]" style={{ background: "var(--field-bg)", border: "0.5px solid var(--field-border)" }}>
                       <p className="text-[12px] font-mono leading-[1.8]" style={{ color: "var(--field-supporting)" }}>
-                        /plugin marketplace add cachilupis/aims-os-design-system<br/>
+                        /plugin marketplace add aimsos/aims-os-design-system<br/>
                         /plugin install aims-prototype-screen
                       </p>
                     </div>
