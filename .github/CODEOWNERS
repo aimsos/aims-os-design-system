@@ -1,10 +1,10 @@
-# DS core — requires @cachilupis review before merge
-/src/components/       @cachilupis
-/src/App.tsx           @cachilupis
-/src/index.css         @cachilupis
-/src/lib/              @cachilupis
-/tailwind.config.*     @cachilupis
-CLAUDE.md              @cachilupis
+# DS core — requires @michaelorellana-design review before merge
+/src/components/       @michaelorellana-design
+/src/App.tsx           @michaelorellana-design
+/src/index.css         @michaelorellana-design
+/src/lib/              @michaelorellana-design
+/tailwind.config.*     @michaelorellana-design
+CLAUDE.md              @michaelorellana-design
 
 # PM prototype screens — any collaborator can merge
 # /src/screens/  (no owner = no required review)

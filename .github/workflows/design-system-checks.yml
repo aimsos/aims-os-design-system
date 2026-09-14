@@ -62,8 +62,8 @@ jobs:
   #
   # So the site now follows main, and only main. `needs: checks` is the gate:
   # a red main does not publish. The review gate moves from "before deploy" to
-  # "before merge", which is where it already happened in practice — every PR
-  # gets its own Vercel preview.
+  # "before merge". Preview URLs for PRs are not published here (GitHub Pages
+  # only serves main); use the Actions check + a local `npm run dev` for review.
   deploy:
     needs: checks
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
