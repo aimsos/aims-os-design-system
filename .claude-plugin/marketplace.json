@@ -2,7 +2,7 @@
   "name": "aims-os-skills",
   "id": "aims-os-skills",
   "owner": {
-    "name": "cachilupis"
+    "name": "AIMS OS"
   },
   "metadata": {
     "description": "Claude Code skills for the AIMS OS Design System — generate PM prototype screens from real DS components, consistent with the repo's Figma-linked component library.",
@@ -15,7 +15,7 @@
       "description": "Generates a complete, working PM prototype screen from a plain-language description — composes it from real AIMS OS DS components, registers it in the Prototypes gallery, verifies it, and ships it as a branch + PR.",
       "version": "1.0.0",
       "author": {
-        "name": "cachilupis"
+        "name": "AIMS OS"
       },
       "keywords": [
         "aims-os",

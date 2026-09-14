@@ -1,4 +1,15 @@
-# DS core — requires @michaelorellana-design review before merge
+# DS core — @michaelorellana-design's review is requested on any PR touching it.
+#
+# The handle changed with the repo move to the AIMS OS org (2026-09-11).
+# @cachilupis has no access here, and GitHub silently IGNORES a CODEOWNERS
+# entry naming someone who cannot write to the repo — so the old handle was
+# not a stale label, it was this file doing nothing at all. Alex fixed it in
+# #2; this branch had the same fix and they met here.
+#
+# WHETHER IT BLOCKS is not decided in this file. CODEOWNERS only says who
+# owns what; a merge is stopped only if `main`'s protection rule has "Require
+# review from Code Owners" switched on. Ask before assuming — the README has
+# claimed "blocks merge" since long before anyone checked.
 /src/components/       @michaelorellana-design
 /src/App.tsx           @michaelorellana-design
 /src/index.css         @michaelorellana-design
