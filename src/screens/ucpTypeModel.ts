@@ -321,11 +321,27 @@ export function specForContact(c: UcpContact): UcpProfileSpec {
  * Knowledge is what it can prove — and Drive, Sandbox and Truth are three
  * shelves of the same cupboard.
  */
+/**
+ * INTELLIGENCE IS OFF FOR THIS VERSION — Michael, 2026-09-14.
+ *
+ * A flag, not a deletion. The tab, `IntelligenceTab`, the signal catalogue,
+ * the suggestion model and the profile layer are all still here and all still
+ * compile; the strip simply does not offer the tab. Deleting it would throw
+ * away a build that took four passes to get right, and turning it back on
+ * should be this one line rather than an archaeology exercise.
+ *
+ * Two places read it, and both have to: the strip, so the tab is not offered,
+ * and the Overview's Open Signals widget, whose rows link INTO Intelligence.
+ * A live link to a hidden tab is worse than no link — it is a dead click on
+ * the first screen of the record.
+ */
+export const INTELLIGENCE_ENABLED = false
+
 export function tabsForContact(c: UcpContact): { id: string; label: string }[] {
   return [
     { id: "overview",     label: "Overview"     },
     { id: "activity",     label: "Activity"     },
-    { id: "intelligence", label: "Intelligence" },
+    ...(INTELLIGENCE_ENABLED ? [{ id: "intelligence", label: "Intelligence" }] : []),
     { id: "knowledge",    label: "Knowledge"    },
     // Industry modules last. A type's own tab is the domain layer on top of
     // the spine — a Company brings People — and it sits after the four

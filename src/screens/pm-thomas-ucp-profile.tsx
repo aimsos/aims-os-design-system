@@ -85,7 +85,7 @@ import { SECONDARY_METADATA_MAX } from "@/components/ui/entity-header"
 import * as LucideIcons from "lucide-react"
 import { Sparkle, Send, ScanLine, Inbox, HardDrive, FileSearch, Lock } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
-import { specForContact, tabsForContact } from "./ucpTypeModel"
+import { specForContact, tabsForContact, INTELLIGENCE_ENABLED } from "./ucpTypeModel"
 import type { CanvasEntry, ProfileWidgetRow } from "./ucpTypeModel"
 import {
   PANEL_CONTENT_CLASS,
@@ -310,11 +310,21 @@ function AlertsContent({ contact, onGoTab }: { contact: UcpContact; onGoTab: (id
   }
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      {/* WITH INTELLIGENCE OFF THESE ROWS ARE NOT LINKS — 2026-09-14.
+          They read the same either way; what changes is whether they respond.
+          A row that still looked clickable and went nowhere would be a dead
+          click on the first screen of the record, which is worse than a row
+          that never offered. The signals themselves stay: they are the most
+          decision-relevant thing on Overview, and they are legible here
+          without the tab that explains them. */}
       {signals.slice(0, 4).map(sig => (
         <button
           key={sig.type}
-          className="appearance-none bg-transparent border-0 p-0 cursor-pointer text-left"
-          onClick={() => onGoTab("intelligence")}
+          className={INTELLIGENCE_ENABLED
+            ? "appearance-none bg-transparent border-0 p-0 cursor-pointer text-left"
+            : "appearance-none bg-transparent border-0 p-0 text-left cursor-default"}
+          onClick={INTELLIGENCE_ENABLED ? () => onGoTab("intelligence") : undefined}
+          disabled={!INTELLIGENCE_ENABLED}
           style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", font: "inherit" }}
         >
           <span
@@ -331,10 +341,19 @@ function AlertsContent({ contact, onGoTab }: { contact: UcpContact; onGoTab: (id
           <span style={{ fontSize: 11, color: "var(--muted-foreground)", whiteSpace: "nowrap" }}>{sig.since}</span>
         </button>
       ))}
+      {/* The CTA names the tab, so it goes with it rather than being reworded
+          into a button that points at nothing. The count is still true and
+          still worth saying — it just says it as text. */}
       {signals.length > 4 && (
-        <Button variant="tertiary" size="sm" className="self-start !px-0" onClick={() => onGoTab("intelligence")}>
-          {`${signals.length - 4} more in Intelligence`}
-        </Button>
+        INTELLIGENCE_ENABLED ? (
+          <Button variant="tertiary" size="sm" className="self-start !px-0" onClick={() => onGoTab("intelligence")}>
+            {`${signals.length - 4} more in Intelligence`}
+          </Button>
+        ) : (
+          <span className="self-start text-[11px] pt-[4px]" style={{ color: "var(--field-supporting)" }}>
+            {`${signals.length - 4} more not shown`}
+          </span>
+        )
       )}
     </div>
   )
