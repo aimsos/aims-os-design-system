@@ -1237,14 +1237,12 @@ The screen appears in the "Prototypes" sidebar group and opens full-screen (no D
    publishing (see *Publishing the site* below), so the review has to happen
    while the PR is still open.
 
-   **There is no per-PR preview URL any more** — the repo moved to the AIMS OS
-   org on 2026-09-11 and Vercel did not come with it. So the review happens on
-   `npm run dev`, and **you** drive it: take screenshots of the screens you
-   changed, in every tab and state you touched, and put them in front of him.
-   Never ask him to run a dev server to check your work — he is Product
-   Design, not the build. If a stakeholder outside the repo needs to see it,
-   say so out loud: that now requires either a merge or the preview hosting
-   being restored, and neither is a decision to make silently.
+   **Review on the PR's own preview URL**, which the `preview` job posts as a
+   comment a couple of minutes after the push. Point him at it, and at the
+   `?proto=<id>` link for the screen you changed — never at a dev server he
+   would have to run himself. Screenshots of what changed are still worth
+   bringing unprompted; the preview is what lets him, a PM, or anyone else
+   outside the repo check the parts you did not think to screenshot.
 
 ---
 
@@ -1277,7 +1275,8 @@ Three separate places, and merging only reaches the second one:
 
 | Where | What it is | Changes when |
 |---|---|---|
-| A branch | Work in progress | You push to it. **No preview URL** — see below |
+| A branch | Work in progress | You push to it |
+| **A PR** | A change up for review | **Its own preview URL** — `…/preview/pr-<n>/`, posted as a comment and rebuilt on every push |
 | **`main`** | The agreed code | A PR is merged |
 | **The site** — <https://aimsos.github.io/aims-os-design-system/> | The built HTML/JS on GitHub Pages | Automatically, on every push to `main` |
 
@@ -1314,17 +1313,28 @@ no protection at all, because the repo's own branch-protection API returns
 nothing at this permission level. It is not readable, which is not the same as
 not there; the only reliable test is to try to merge.
 
-**THE MOVE COST US THE PER-BRANCH PREVIEW, and that is a real loss, not a
-detail.** Vercel built every PR at its own URL, which is what let Michael
-review a flow, and share it with a PM or with Thom, without anyone installing
-anything. What is left is `npm run dev` — which only reaches people with the
-repo cloned — or merging, which publishes to everyone before it has been
-looked at. That inverts the order the sign-off rule above depends on.
+**THE PREVIEW IS BACK, on Pages instead of on Vercel** (2026-09-14). The move
+took Vercel's per-PR URL with it, and for three days the only way to look at a
+change was `npm run dev` — which reaches nobody without the repo — or merging,
+which publishes to everyone before anyone has looked. That inverted the order
+the sign-off rule above depends on.
 
-Until preview hosting is restored, the gate holds only because Claude carries
-it: screenshots of what changed, before the merge, unprompted. If you find
-yourself typing "check it on localhost", stop — that is the rule failing, not
-being followed.
+The `preview` job builds every PR at `/preview/pr-<n>/` on the same Pages site
+and posts the link as a comment, editing that same comment on each push rather
+than adding one. `preview-cleanup` removes the folder when the PR closes. It
+needs no service outside the repo, which is the point: reconnecting Vercel
+needs an app installed on the organisation, and that is somebody else's
+decision to make.
+
+**The deploy job writes gh-pages with plain git because of this.** `npx
+gh-pages` wipes the branch on every publish and cannot be told to spare a
+folder, so one deploy from `main` would have deleted every open PR's preview
+and left the links in those comments 404ing until somebody pushed again.
+
+Still true, and the reason the preview matters: **CI cannot tell you whether a
+screen looks right.** It type-checks, builds and audits; a visually broken
+screen that compiles will publish. The preview is where a human looks, and the
+sign-off happens there, before the merge.
 
 ---
 

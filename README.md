@@ -37,7 +37,7 @@ Full instructions (including a no-terminal path) live in the app itself: **DS St
 
 1. Get Claude Code running against this repo — via the terminal CLI, the Claude Desktop app, or `claude.ai/code` (see the guide above for all three).
 2. Describe the screen you need in plain language. The `aims-prototype-screen` skill (`.claude/skills/aims-prototype-screen/`) picks it up automatically, composes it from real components, registers it in the sidebar's "Prototypes" section, and ships it via a branch + PR.
-3. Review with `npm run dev` (there is no per-PR preview URL — see "Where prototypes are deployed"), iterate in the same conversation, merge once checks pass.
+3. Review on the PR's own preview link — the `preview` job posts it as a comment a couple of minutes after you push — iterate in the same conversation, merge once checks pass.
 
 ## Using the skills as an installable plugin
 
