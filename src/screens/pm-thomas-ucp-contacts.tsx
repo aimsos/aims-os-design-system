@@ -727,8 +727,39 @@ function CreateContactWizard({
         />
       )}
     >
+      {/*
+        EVERY REACHABLE STEP IS CLICKABLE — Michael, 2026-09-15.
+
+        It used to allow backwards only, which made the Stepper a progress bar
+        with a rewind button: fine for going back to fix a typo, useless for
+        the thing people actually do, which is jump to Review to check one
+        value and come straight back. On an EDIT that is most of the visit —
+        the record is already complete, so the reader is not filling a form,
+        they are finding one field.
+
+        Forward is allowed only as far as the flow is actually valid: every
+        stage before the target has to be complete, which is the same test
+        `Next` runs. So the Stepper can never land somebody on Review with an
+        empty required field — it just stops offering the step instead of
+        letting them arrive and bounce.
+
+        The Stepper's own `hint` already explains a step that cannot be
+        reached, so a blocked click says why without this having to.
+      */}
       <div style={{ marginBottom: 24 }}>
-        <Stepper steps={steps} onStepClick={i => { if (i < step) setStep(i as 0 | 1 | 2) }} />
+        <Stepper
+          steps={steps}
+          onStepClick={i => {
+            if (i === step) return
+            if (i < step) { setTried(false); setStep(i as 0 | 1 | 2); return }
+            // Forward: every stage between here and there must be complete.
+            for (let j = step; j < i; j++) {
+              if (missingIn(j as 0 | 1).length > 0) { setTried(true); return }
+            }
+            setTried(false)
+            setStep(i as 0 | 1 | 2)
+          }}
+        />
       </div>
 
       {/* ── 1 · Identity ──────────────────────────────────────────────── */}

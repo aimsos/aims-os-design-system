@@ -3479,10 +3479,10 @@ function ConciergeChat({
         text: isEmail
           ? `I can draft it. The open thread on this record is the migration timeline ${contact.name} asked for in writing — I would lead with the date and attach the governance addendum already in Legal. Nothing sends until you approve the draft.`
           : `I can draft it. ${contact.name} answers faster on SMS than on email here, so I would keep it to the date and a link rather than the full timeline. Nothing sends until you approve the draft.`,
-        sources: [
-          { label: isEmail ? "Interaction history" : "Channel response times", plane: "truth"   },
-          { label: "Call notes — Sep 2",                                      plane: "sandbox" },
-        ],
+        /* No source chips here either — same reason as the greeting. This is
+           the agent OFFERING to do something, not answering a question, so
+           there is nothing yet to attribute. The chips return on the first
+           real answer. */
       },
     ])
     setDraft("")
