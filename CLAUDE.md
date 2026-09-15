@@ -1233,11 +1233,16 @@ The screen appears in the "Prototypes" sidebar group and opens full-screen (no D
 1. `npx tsc -b --noEmit` → 0 errors (catches type mistakes)
 2. Take a browser screenshot of the screen on `localhost:5173` → compare against the DS pattern page for the same pattern. TypeScript passing ≠ screen rendering correctly.
 3. Check every tab of the screen in the screenshot: Overview uses `WidgetCanvasSection`, Workers uses `ListViewSection`, Logs shows `Pagination`.
-4. Get Michael's visual sign-off **before the PR is merged** — on the PR's own
-   Vercel preview, or on localhost. This used to read "before pushing to
-   production", which stopped being the right gate when the site started
-   following `main` automatically (see *Publishing the site* below): merging
-   IS publishing now, so the review has to happen while the PR is still open.
+4. Get Michael's visual sign-off **before the PR is merged**. Merging IS
+   publishing (see *Publishing the site* below), so the review has to happen
+   while the PR is still open.
+
+   **Review on the PR's own preview URL**, which the `preview` job posts as a
+   comment a couple of minutes after the push. Point him at it, and at the
+   `?proto=<id>` link for the screen you changed — never at a dev server he
+   would have to run himself. Screenshots of what changed are still worth
+   bringing unprompted; the preview is what lets him, a PM, or anyone else
+   outside the repo check the parts you did not think to screenshot.
 
 ---
 
@@ -1270,9 +1275,10 @@ Three separate places, and merging only reaches the second one:
 
 | Where | What it is | Changes when |
 |---|---|---|
-| A branch | Work in progress | You push to it. Every PR also gets its own **Vercel preview** — that is the link to review |
+| A branch | Work in progress | You push to it |
+| **A PR** | A change up for review | **Its own preview URL** — `…/preview/pr-<n>/`, posted as a comment and rebuilt on every push |
 | **`main`** | The agreed code | A PR is merged |
-| **The site** — <https://cachilupis.github.io/aims-os-design-system/> | The built HTML/JS on GitHub Pages | Automatically, on every push to `main` |
+| **The site** — <https://aimsos.github.io/aims-os-design-system/> | The built HTML/JS on GitHub Pages | Automatically, on every push to `main` |
 
 **A merge to `main` publishes the site.** The `deploy` job in
 `.github/workflows/design-system-checks.yml` builds with `GH_PAGES=true` and
@@ -1285,14 +1291,50 @@ work goes to the official site with nothing to warn you. The script stays in
 `package.json` for a genuine emergency (CI down and the site must move); if you
 use it, `git checkout main && git pull` first, without exception.
 
-**The deploy build is a second build on purpose.** `checks` builds for Vercel,
-which serves from the domain root; Pages serves from `/aims-os-design-system/`,
-which is what `GH_PAGES=true` switches on. The two outputs are not
-interchangeable, so the artifact cannot be shared between the jobs.
+**The repo lives at `aimsos/aims-os-design-system` since 2026-09-11.** It moved
+out of Michael's personal account into the AIMS OS org; the old
+`cachilupis/aims-os-design-system` is archived. Every branch came across at the
+same commit and the history is intact, but **the five PRs that were open at the
+time did not** — their branches are here, the PR threads are not, so those get
+reopened against this repo when their work is wanted.
+
+**The deploy build is a second build on purpose.** `checks` builds for the
+domain root; Pages serves from `/aims-os-design-system/`, which is what
+`GH_PAGES=true` switches on. The two outputs are not interchangeable, so the
+artifact cannot be shared between the jobs.
 
 **CI cannot tell you whether a screen looks right** — it type-checks, builds and
-audits. A visually broken screen that compiles will publish. That is what the
-per-PR Vercel preview is for, and why the sign-off moved to before the merge.
+audits. A visually broken screen that compiles will publish. That is why the
+sign-off moved to before the merge.
+
+**`main` IS PROTECTED — a merge needs an approved review** (confirmed
+2026-09-14 by being refused one). An earlier draft of this file said there was
+no protection at all, because the repo's own branch-protection API returns
+nothing at this permission level. It is not readable, which is not the same as
+not there; the only reliable test is to try to merge.
+
+**THE PREVIEW IS BACK, on Pages instead of on Vercel** (2026-09-14). The move
+took Vercel's per-PR URL with it, and for three days the only way to look at a
+change was `npm run dev` — which reaches nobody without the repo — or merging,
+which publishes to everyone before anyone has looked. That inverted the order
+the sign-off rule above depends on.
+
+The `preview` job builds every PR at `/preview/pr-<n>/` on the same Pages site
+and posts the link as a comment, editing that same comment on each push rather
+than adding one. `preview-cleanup` removes the folder when the PR closes. It
+needs no service outside the repo, which is the point: reconnecting Vercel
+needs an app installed on the organisation, and that is somebody else's
+decision to make.
+
+**The deploy job writes gh-pages with plain git because of this.** `npx
+gh-pages` wipes the branch on every publish and cannot be told to spare a
+folder, so one deploy from `main` would have deleted every open PR's preview
+and left the links in those comments 404ing until somebody pushed again.
+
+Still true, and the reason the preview matters: **CI cannot tell you whether a
+screen looks right.** It type-checks, builds and audits; a visually broken
+screen that compiles will publish. The preview is where a human looks, and the
+sign-off happens there, before the merge.
 
 ---
 

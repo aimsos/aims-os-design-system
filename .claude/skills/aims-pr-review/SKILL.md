@@ -16,7 +16,7 @@ Automated CI (build + `audit-tokens.cjs`) catches hardcoded colors, broken build
 If a PR number is given, use it directly. If not (`"revisa los PRs de Thom"`, `"¿hay algo nuevo?"`):
 
 ```bash
-gh pr list --repo cachilupis/aims-os-design-system --state open --json number,title,author,createdAt,updatedAt,mergeable,mergeStateStatus
+gh pr list --repo aimsos/aims-os-design-system --state open --json number,title,author,createdAt,updatedAt,mergeable,mergeStateStatus
 ```
 
 Flag anything from a PM author that's new or updated since the last check. If there are several, review each independently — don't average a verdict across multiple PRs.
@@ -24,7 +24,7 @@ Flag anything from a PM author that's new or updated since the last check. If th
 ## Step 2 — CI status first
 
 ```bash
-gh pr view <number> --repo cachilupis/aims-os-design-system --json mergeable,mergeStateStatus,statusCheckRollup,files --jq '{mergeable, mergeStateStatus, checks: [.statusCheckRollup[] | {name: (.name // .context), status: (.conclusion // .state)}], files: [.files[].path]}'
+gh pr view <number> --repo aimsos/aims-os-design-system --json mergeable,mergeStateStatus,statusCheckRollup,files --jq '{mergeable, mergeStateStatus, checks: [.statusCheckRollup[] | {name: (.name // .context), status: (.conclusion // .state)}], files: [.files[].path]}'
 ```
 
 - `mergeable: CONFLICTING` → stop here, report it, don't audit further until it's rebased.
@@ -142,8 +142,8 @@ State plainly: **approvable** or **not yet**. If not yet, produce two things, re
 If approvable and Michael's instruction included "approve it if it's clean" (or equivalent), proceed directly:
 
 ```bash
-gh pr review <number> --repo cachilupis/aims-os-design-system --approve --body "<one-line summary of what was verified>"
-gh pr merge <number> --repo cachilupis/aims-os-design-system --merge --delete-branch
+gh pr review <number> --repo aimsos/aims-os-design-system --approve --body "<one-line summary of what was verified>"
+gh pr merge <number> --repo aimsos/aims-os-design-system --merge --delete-branch
 ```
 
 Note: if Michael is the PR author (his own DS-maintenance PRs), the `review --approve` call will fail with "Can not approve your own pull request" — that's expected, not an error to fix; proceed to merge directly.

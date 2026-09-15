@@ -5,12 +5,19 @@ on:
   # an intermediate branch, so `branches: [main]` silently skipped them: #70 and
   # #71 (5,000+ lines between them) ran no type check and no audit at all, and
   # still reported CLEAN because only the Vercel check was present.
+  #
+  # `closed` is in the list only so the preview cleanup can fire — it is not a
+  # default type, and without it a merged PR's preview would sit on gh-pages
+  # for ever. `checks` skips that event explicitly; there is nothing to type
+  # check about a PR that is over.
   pull_request:
+    types: [opened, synchronize, reopened, closed]
   push:
     branches: [main]
 
 jobs:
   checks:
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -94,20 +101,159 @@ jobs:
         env:
           GH_PAGES: "true"
 
-      # The same tool `npm run deploy` already used, so the published result is
-      # byte-for-byte what a manual deploy produced — only the trigger changed.
+      # PLAIN GIT, NOT `npx gh-pages` — changed when per-PR previews arrived.
       #
-      # NOTE the identity has no "[bot]" in it, and must not get "corrected" back
-      # to GitHub's canonical `github-actions[bot] <…+github-actions[bot]@…>`:
-      # gh-pages parses --user with a strict RFC address matcher and square
-      # brackets are not legal in an unquoted local-part, so it exits 1 before
-      # doing any work. That is exactly how this job failed on its first run.
+      # The CLI wipes the branch on every publish, and previews live on that
+      # same branch under preview/. One deploy from main would have deleted
+      # every open PR's preview, silently, and the links in those PR comments
+      # would 404 until someone pushed again. The CLI has no way to say "clear
+      # everything except this folder".
+      #
+      # So the branch is checked out and rewritten explicitly: delete
+      # everything at the root EXCEPT .git and preview/, copy dist in, commit.
+      # Twelve lines that say exactly what they do, and they also retire the
+      # `--user` trap the old note below documents — there is no RFC address
+      # matcher here to fall foul of.
       - name: Publish to gh-pages
         env:
           REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
         run: |
-          npx gh-pages \
-            --dist dist \
-            --repo "$REPO_URL" \
-            --user "github-actions <41898282+github-actions@users.noreply.github.com>" \
-            --message "Deploy ${GITHUB_SHA:0:7} from main"
+          set -euo pipefail
+          git clone --depth 1 --branch gh-pages "$REPO_URL" .gh-pages || {
+            git init .gh-pages
+            git -C .gh-pages checkout -b gh-pages
+            git -C .gh-pages remote add origin "$REPO_URL"
+          }
+          # Everything at the root goes except .git and the previews.
+          find .gh-pages -mindepth 1 -maxdepth 1 \
+            ! -name .git ! -name preview -exec rm -rf {} +
+          cp -R dist/. .gh-pages/
+          # Pages would otherwise run the output through Jekyll, which drops
+          # any directory starting with an underscore.
+          touch .gh-pages/.nojekyll
+          cd .gh-pages
+          git config user.name  "github-actions"
+          git config user.email "41898282+github-actions@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "Deploy ${GITHUB_SHA:0:7} from main"
+          git push origin gh-pages
+
+  # ── Per-PR preview ────────────────────────────────────────────────────────
+  #
+  # WHY THIS EXISTS. The repo moved to the AIMS OS org on 2026-09-11 and Vercel
+  # did not come with it, which took the per-PR preview URL with it. That URL
+  # was not a convenience: it was the only way to look at a change before it
+  # was published, and the only way to show one to somebody who does not have
+  # the repo cloned. Without it the order inverts — merge, publish, then find
+  # out — on a repo whose entire content is prototypes waiting to be reviewed.
+  #
+  # WHY NOT JUST RECONNECT VERCEL. That needs an app installed on the
+  # organisation, which is an owner's decision and an outside dependency. This
+  # needs nothing but the repo: same Pages site, same token, a subfolder per
+  # PR. It is less capable than Vercel — no instant rollbacks, no per-commit
+  # history — and it answers the one question that matters.
+  #
+  # Gated on `checks` so a preview is never built from something that does not
+  # compile, and sharing the `gh-pages` concurrency group with `deploy` so the
+  # two never race for the branch.
+  preview:
+    needs: checks
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    concurrency:
+      group: gh-pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # BASE_PATH has to match where this lands exactly, or every asset
+      # resolves against the domain root and the page loads blank.
+      - name: Build for the preview path
+        env:
+          BASE_PATH: /aims-os-design-system/preview/pr-${{ github.event.number }}/
+        run: npm run build
+
+      - name: Publish the preview
+        env:
+          REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          PR: ${{ github.event.number }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch gh-pages "$REPO_URL" .gh-pages
+          rm -rf ".gh-pages/preview/pr-$PR"
+          mkdir -p ".gh-pages/preview/pr-$PR"
+          cp -R dist/. ".gh-pages/preview/pr-$PR/"
+          cd .gh-pages
+          git config user.name  "github-actions"
+          git config user.email "41898282+github-actions@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "Preview for PR #$PR (${GITHUB_SHA:0:7})"
+          git push origin gh-pages
+
+      # ONE comment, edited on every push, never a new one each time. A PR with
+      # nine identical preview comments is a PR nobody reads the comments of.
+      - name: Comment the link
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr  = context.issue.number
+            const url = `https://aimsos.github.io/aims-os-design-system/preview/pr-${pr}/`
+            const tag = '<!-- pr-preview -->'
+            const body = [
+              tag,
+              `### Preview`,
+              ``,
+              `**${url}**`,
+              ``,
+              `Built from \`${context.sha.slice(0, 7)}\`. Updates on every push to this PR, and is removed when it closes.`,
+              ``,
+              `A prototype opens at \`?proto=<id>\` — e.g. [UCP Contacts](${url}?proto=proto-thomas-ucp-contacts).`,
+            ].join('\n')
+            const { data: comments } = await github.rest.issues.listComments({
+              ...context.repo, issue_number: pr, per_page: 100,
+            })
+            const existing = comments.find(c => c.body?.startsWith(tag))
+            if (existing) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body })
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: pr, body })
+            }
+
+  # ── Cleanup ───────────────────────────────────────────────────────────────
+  #
+  # A closed PR's preview is a link that outlives the thing it previewed, and
+  # gh-pages would grow a folder per PR for ever. Runs on close whether the PR
+  # was merged or abandoned — both mean nobody should still be looking at it.
+  preview-cleanup:
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: gh-pages
+      cancel-in-progress: false
+    steps:
+      - name: Remove the preview
+        env:
+          REPO_URL: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          PR: ${{ github.event.number }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch gh-pages "$REPO_URL" .gh-pages
+          rm -rf ".gh-pages/preview/pr-$PR"
+          cd .gh-pages
+          git config user.name  "github-actions"
+          git config user.email "41898282+github-actions@users.noreply.github.com"
+          git add -A
+          git diff --staged --quiet || git commit -m "Remove preview for PR #$PR"
+          git push origin gh-pages
