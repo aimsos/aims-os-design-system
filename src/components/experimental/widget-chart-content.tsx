@@ -313,11 +313,20 @@ function LineChart({ filled = false, bare = false }: { filled?: boolean; bare?: 
   )
 }
 
-function PieChart({ donut = false }: { donut?: boolean }) {
+function PieChart({ donut = false, data, unit = "accounts" }: { donut?: boolean; data?: ChartDatum[]; unit?: string }) {
   const f = useFilter()
-  const labels = f === "Status" ? STATUS_PARTS : ["Enterprise", "Mid-market", "SMB", "Other"]
-  const pcts   = tiltShare([46, 31, 15, 8], f)
-  const total  = Math.round(842 * shareOf(f))
+  /* REAL DATA WINS, AND IT SKIPS THE FILTER TILT. The sample series exists so
+     the Widget Builder's preview shows a believable picture with nothing
+     behind it, and `tiltShare` re-shapes it when a preview chip is clicked —
+     neither makes sense once a caller has passed actual numbers. A chart that
+     quietly re-weighted the values it was given would be lying. */
+  const real   = data && data.length > 0
+  const sum    = real ? data.reduce((a, d) => a + d.value, 0) : 0
+  const labels = real ? data.map(d => d.label)
+    : f === "Status" ? STATUS_PARTS : ["Enterprise", "Mid-market", "SMB", "Other"]
+  const pcts   = real ? data.map(d => (sum === 0 ? 0 : Math.round(d.value / sum * 100)))
+    : tiltShare([46, 31, 15, 8], f)
+  const total  = real ? sum : Math.round(842 * shareOf(f))
   const parts: [string, number][] = labels.map((l, i) => [l, pcts[i]])
   let acc = 0
   const stops = parts.map(([, pct], i) => {
@@ -355,7 +364,7 @@ function PieChart({ donut = false }: { donut?: boolean }) {
         {parts.map(([label, pct], i) => {
           const g = grow(i, "left")
           return (
-            <DataPoint key={label} fill="block w-full" label={`${label} · ${pct}% — ${Math.round(total * pct / 100)} of ${total.toLocaleString()} accounts`}>
+            <DataPoint key={label} fill="block w-full" label={`${label} · ${pct}% — ${real ? data[i].value : Math.round(total * pct / 100)} of ${total.toLocaleString()} ${unit}`}>
               <div className={g.className} style={{ ...g.style, display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
                 <span style={{ width: 8, height: 8, borderRadius: 2, background: CAT[i], flexShrink: 0 }} />
                 <span style={{
@@ -378,9 +387,45 @@ function PieChart({ donut = false }: { donut?: boolean }) {
 // those two hues would read as one.
 const FUNNEL_STYLES = ["primary", "purple", "light-blue", "yellow"] as const
 
-function FunnelChart() {
+function FunnelChart({ data }: { data?: ChartDatum[] }) {
   const f = useFilter()
   const sh = shareOf(f)
+  /* Real stages, in the order given. The percentage is measured against the
+     FIRST stage rather than against the largest: a funnel's entry stage is the
+     population, and if a later stage somehow exceeds it that is a fact about
+     the data worth seeing, not one to sort away. The sample path below still
+     sorts, because there the numbers are invented and a funnel that widens
+     would only look like a bug. */
+  if (data && data.length > 0) {
+    const entry = data[0].value || 1
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {data.map((d, i) => {
+          const g    = grow(i, "left")
+          const pct  = Math.round(d.value / entry * 100)
+          const prev = i > 0 ? data[i - 1] : null
+          const drop = prev
+            ? ` — ${Math.round((1 - d.value / (prev.value || 1)) * 100)}% lost from ${prev.label}`
+            : " — entry stage"
+          return (
+            <DataPoint key={d.label} fill="block w-full" label={`${d.label} · ${d.value} of ${entry} (${pct}%)${drop}`}>
+              <div className={g.className} style={{ ...g.style, display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 11, color: SUB, width: 62, flexShrink: 0 }}>{d.label}</span>
+                <ProgressBar
+                  className="flex-1 min-w-0"
+                  value={pct}
+                  style={FUNNEL_STYLES[i % FUNNEL_STYLES.length]}
+                  size="m"
+                  label={`${d.label} — ${d.value}`}
+                />
+                <span style={{ fontSize: 11, fontWeight: 600, color: TXT, width: 38, textAlign: "right" as const }}>{d.value}</span>
+              </div>
+            </DataPoint>
+          )
+        })}
+      </div>
+    )
+  }
   // A funnel only means anything if it narrows. Tilting each stage on its own
   // can lift a later stage above an earlier one — "161 prospects, 161
   // qualified" reads as nobody dropping out, and one step further it would
@@ -579,6 +624,15 @@ function MapChart() {
   )
 }
 
+/**
+ * One labelled value. The smallest shape every chart mode here can read, and
+ * deliberately not a generic series/axis model: these are widget previews, and
+ * the two modes a real screen needs so far (donut, funnel) are both a list of
+ * labelled numbers. When a mode needs more than that — a line chart needs an
+ * x axis — it grows its own prop rather than bending this one.
+ */
+export interface ChartDatum { label: string; value: number }
+
 const BY_ID: Record<string, () => React.ReactElement> = {
   "bar":         () => <BarChart />,
   "stacked-bar": () => <BarChart stacked />,
@@ -587,8 +641,8 @@ const BY_ID: Record<string, () => React.ReactElement> = {
   "sparkline":   () => <LineChart bare />,
   "pie":         () => <PieChart />,
   "donut":       () => <PieChart donut />,
-  "funnel":      FunnelChart,
-  "gauge":       GaugeChart,
+  "funnel":      () => <FunnelChart />,
+  "gauge":       () => <GaugeChart />,
   "heatmap":     HeatMapChart,
   "correlation": CorrelationChart,
   "map":         MapChart,
@@ -600,13 +654,25 @@ const BY_ID: Record<string, () => React.ReactElement> = {
  * `filter` is the preview filter the viewer has applied — passing it re-shapes
  * every series below, so clicking a chip actually changes the picture.
  */
-export function ChartModeContent({ id, filter = null }: { id: string; filter?: string | null }) {
+export function ChartModeContent({
+  id, filter = null, data, unit,
+}: { id: string; filter?: string | null; data?: ChartDatum[]; unit?: string }) {
   const C = BY_ID[id]
   if (!C) return null
+  /* `data` reaches only the modes that read it. The rest keep their sample
+     series, which is correct rather than lazy: they were built as previews and
+     nothing is asking them to plot anything yet. A mode that starts being used
+     on a real screen grows the prop then, and the ones already converted are
+     the pattern to follow. */
+  const withData =
+    id === "donut" ? <PieChart donut data={data} unit={unit} /> :
+    id === "pie"   ? <PieChart data={data} unit={unit} /> :
+    id === "funnel" ? <FunnelChart data={data} /> :
+    null
   return (
     <FilterCtx.Provider value={filter}>
       <ChartKeyframes />
-      <C />
+      {data && data.length > 0 && withData ? withData : <C />}
     </FilterCtx.Provider>
   )
 }
