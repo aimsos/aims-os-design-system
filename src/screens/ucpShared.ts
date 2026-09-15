@@ -1860,13 +1860,15 @@ export function getConciergeOpening(c: UcpContact): ConciergeTurn[] {
       text: `I'm the concierge for ${c.name}. I answer from this record's Truth, Sandbox and Sources planes, and I show you which one each answer came from.`,
     },
     {
+      /* NO SOURCE CHIPS ON THE OPENING — Michael, 2026-09-15.
+         They belong under an ANSWER, where they say where that answer came
+         from. Under the greeting they are decoration: nobody asked anything
+         yet, so there is nothing for them to attribute, and three chips are
+         the first thing the eye lands on in a panel that has not been used.
+         The moment a question is asked the chips come back, which is when
+         they are doing the job they exist for. */
       id: "t2", from: "agent",
       text: c.insights[0].detail,
-      sources: [
-        { label: "Interaction history",    plane: "truth"   },
-        { label: "Call notes — Aug 22",    plane: "sandbox" },
-        { label: "Shared Drive · Legal",   plane: "sources" },
-      ],
     },
   ]
 }

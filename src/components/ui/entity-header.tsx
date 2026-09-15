@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect, type KeyboardEvent, type ReactNode } from "react"
+import { createPortal } from "react-dom"
 import { Sparkle, MoreHorizontal, Lock, EyeOff, Info, Database, type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePageScroll, type PageScrollInfo } from "@/lib/page-scroll"
@@ -1914,7 +1915,30 @@ function ActionOverflowMenu({
   return (
     <>
       {disabled && disabledTooltip ? <Tooltip content={disabledTooltip} side="cursor">{trigger}</Tooltip> : trigger}
-      {anchor && (
+      {/*
+        PORTALLED TO document.body, and it has to be — Michael, 2026-09-15:
+        the menu was opening ~95px below the kebab and off the right edge.
+
+        `position: fixed` is only relative to the VIEWPORT while no ancestor
+        establishes a containing block for it, and several ordinary properties
+        do: transform, filter, perspective, contain — and `backdrop-filter`,
+        which is what caught this one. UCP's page header is
+        `sticky top-0 backdrop-blur-[16px]`, so every fixed descendant was
+        being measured from that bar's top-left instead of the window's. The
+        anchor was right the whole time; the offset was exactly that bar's
+        own position, which is the tell for this bug.
+
+        A portal moves the element out of that ancestor entirely, so `fixed`
+        means what it says. The click-catcher goes with it — left behind it
+        would cover the wrong rectangle.
+
+        The 200px is duplicated between the anchor maths and the Menu's own
+        width because the anchor has to be computed before the menu exists to
+        be measured. Right-aligned rather than left, which is what a control
+        in a right-hand cluster wants and what the DS flip rule would arrive
+        at anyway.
+      */}
+      {anchor && createPortal(
         <>
           <div className="fixed inset-0" style={{ zIndex: 10000 }} onClick={() => setAnchor(null)} />
           <div style={{ position: "fixed", left: anchor.left, top: anchor.top, zIndex: 10001 }}>
@@ -1929,7 +1953,8 @@ function ActionOverflowMenu({
               ))}
             </Menu>
           </div>
-        </>
+        </>,
+        document.body,
       )}
     </>
   )
