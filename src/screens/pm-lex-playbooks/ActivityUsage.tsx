@@ -15,9 +15,8 @@
 // ProgressBar per row, arc-based ring).
 // ────────────────────────────────────────────────────────────────────────
 
-import type { ReactNode } from "react"
 import { Zap, PlayCircle, Bot, UserCheck } from "lucide-react"
-import { CardContainer } from "@/components/ui/card-container"
+import { CardContainer, type CardVariant } from "@/components/ui/card-container"
 import { HighlightIcon } from "@/components/ui/highlight-icon"
 import type { HighlightIconVariant } from "@/components/ui/highlight-icon"
 import { ProgressBar, type ProgressBarStyle } from "@/components/ui/progress-bar"
@@ -30,17 +29,26 @@ const SUB = "var(--field-supporting)"
 
 // ── Row 1 — stat tiles ("kpi" in WIDGET_DEFS: single metric + feedback text) ──
 
-function ActivityStatTile({ label, value, sub, icon, iconVariant = "informative", tone }: {
+// Product feedback 2026-09-15: plain grey CardContainer read as unfinished.
+// Tinting the tile itself to the same semantic color as its icon (rather
+// than leaving every tile "default" grey) — reuses CardContainer's own
+// color variants, no new tokens.
+const ICON_VARIANT_TO_CARD_VARIANT: Record<HighlightIconVariant, CardVariant> = {
+  informative: "lightBlue", success: "green", alert: "orange", error: "reed",
+  neutral: "default", yellow: "yellow", lime: "limeGreen", purple: "purple", "light-blue": "lightBlue",
+}
+
+export function ActivityStatTile({ label, value, sub, icon, iconVariant = "informative", tone }: {
   label: string
   value: string | number
   sub: string
   icon: React.ComponentType<{ size?: number }>
   iconVariant?: HighlightIconVariant
-  tone?: "yellow" // amber-tinted tile, for Approvals Required
+  tone?: CardVariant // explicit override; defaults to iconVariant's own tint
 }) {
   const Icon = icon
   return (
-    <CardContainer size="sm" variant={tone ?? "default"} className="flex flex-col gap-[10px]">
+    <CardContainer size="sm" variant={tone ?? ICON_VARIANT_TO_CARD_VARIANT[iconVariant]} className="flex flex-col gap-[10px]">
       <div className="flex items-center justify-between">
         <span style={{ fontSize: 12, fontWeight: 600, color: SUB }}>{label}</span>
         <HighlightIcon icon={<Icon size={14} />} variant={iconVariant} size="sm" />
@@ -57,7 +65,7 @@ function deltaLabel(pct: number, suffix: string): string {
 
 // ── Row 2a — Plan Success Rate ── DS-GAP: not yet in catalog (circular progress ring)
 
-function ProgressRing({ pct, size = 96, strokeWidth = 10, style = "success" as ProgressBarStyle }: {
+export function ProgressRing({ pct, size = 96, strokeWidth = 10, style = "success" as ProgressBarStyle }: {
   pct: number
   size?: number
   strokeWidth?: number
@@ -216,10 +224,12 @@ function DistributionBar({ segments }: { segments: { label: string; count: numbe
 }
 
 // ── Layout ────────────────────────────────────────────────────────────────
-
-function Slot({ children }: { children: ReactNode }) {
-  return <div style={{ padding: "0 16px 16px" }}>{children}</div>
-}
+// Every widget is its own WidgetCanvasView slot — draggable, resizable
+// (horizontally and vertically), repositionable, same interaction the real
+// dashboard builder gives every other widget in this app. `tone` (added to
+// CanvasSlot for this — see widget-canvas-view.tsx) tints each slot's real
+// CardContainer to its semantic role instead of every widget reading as the
+// same grey.
 
 export function ActivityUsage({ playbook }: { playbook: Playbook }) {
   const a = playbook.activity
@@ -229,120 +239,112 @@ export function ActivityUsage({ playbook }: { playbook: Playbook }) {
   return (
     <WidgetCanvasView
       initialSlots={[
-        // ── Row 1 — stat tiles ──
-        // One combined full-width slot (not 4 separate ones): 4 equal-width
-        // items don't divide evenly into the canvas's 12-column grid (narrow
-        // = 4 cols, so 4×narrow = 16), which left a 4th tile spilling into
-        // row 2 and cascading misalignment through every row below it. This
-        // mirrors the same repo's own precedent for the same shape
-        // (pm-lex-htl-work-queue.tsx's "kpi-summary" slot bundles several
-        // stats into one widget for the same reason).
+        // One combined widget (not 4 separate ones): 4 equal-width items
+        // don't divide evenly into the canvas's 12-column grid (narrow =
+        // 4 cols, so 4×narrow = 16), which left a 4th tile spilling into
+        // the next row. Same precedent as pm-lex-htl-work-queue.tsx's
+        // "kpi-summary" slot. The widget itself is still one full
+        // drag/resize unit — the 4 numbers are its content, not 4 widgets.
         {
-          uid: "activity-stats", title: "Activity Summary", colSpan: 3,
+          uid: "activity-stats", title: "Activity Summary", colSpan: 3, rowSpan: 4, minRowSpan: 4, autoExpand: false,
           content: (
-            <Slot>
-              <div className="grid gap-[12px]" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
-                <ActivityStatTile label="Moments Triggered"   value={a.momentsTriggered}   sub={deltaLabel(a.momentsTriggeredDeltaPct, "vs last week")} icon={Zap}        iconVariant="informative" />
-                <ActivityStatTile label="Plans Instantiated"  value={a.plansInstantiated}  sub={`${a.conversionRatePct}% conversion rate`}               icon={PlayCircle} iconVariant="light-blue" />
-                <ActivityStatTile label="Auto-Executed"       value={a.autoExecuted}       sub={`${a.autoExecutedPct}% of total plans`}                  icon={Bot}        iconVariant="purple" />
-                <ActivityStatTile label="Approvals Required"  value={a.approvalsRequired}  sub={`${a.approvalsRequiredPct}% of total plans`}             icon={UserCheck}  iconVariant="alert" tone="yellow" />
-              </div>
-            </Slot>
+            <div className="grid gap-[12px]" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+              <ActivityStatTile label="Moments Triggered"   value={a.momentsTriggered}   sub={deltaLabel(a.momentsTriggeredDeltaPct, "vs last week")} icon={Zap}        iconVariant="informative" />
+              <ActivityStatTile label="Plans Instantiated"  value={a.plansInstantiated}  sub={`${a.conversionRatePct}% conversion rate`}               icon={PlayCircle} iconVariant="light-blue" />
+              <ActivityStatTile label="Auto-Executed"       value={a.autoExecuted}       sub={`${a.autoExecutedPct}% of total plans`}                  icon={Bot}        iconVariant="purple" />
+              <ActivityStatTile label="Approvals Required"  value={a.approvalsRequired}  sub={`${a.approvalsRequiredPct}% of total plans`}             icon={UserCheck}  iconVariant="alert" tone="yellow" />
+            </div>
           ),
         },
 
         // ── Row 2 — success rate ring · NBA rate bar · duration/accounts ──
         {
-          uid: "success-rate", title: "Plan Success Rate", colSpan: 1,
+          uid: "success-rate", title: "Plan Success Rate", tone: "green", colSpan: 1, rowSpan: 5, minRowSpan: 4,
           content: (
-            <Slot>
-              <div className="flex flex-col items-center gap-[10px]">
-                <ProgressRing pct={a.planSuccessRatePct} style="success" />
-                <div className="flex flex-col items-center" style={{ textAlign: "center" }}>
-                  <span style={{ fontSize: 12, color: TXT }}>{a.successCount} plans reached the primary success event</span>
-                  <span style={{ fontSize: 12, color: SUB, marginTop: 4 }}>{a.exitedWithoutSuccessPct}% exited without success</span>
-                </div>
+            <div className="flex flex-col items-center gap-[10px]">
+              <ProgressRing pct={a.planSuccessRatePct} style="success" />
+              <div className="flex flex-col items-center" style={{ textAlign: "center" }}>
+                <span style={{ fontSize: 12, color: TXT }}>{a.successCount} plans reached the primary success event</span>
+                <span style={{ fontSize: 12, color: SUB, marginTop: 4 }}>{a.exitedWithoutSuccessPct}% exited without success</span>
               </div>
-            </Slot>
+            </div>
           ),
         },
         {
-          uid: "nba-rate", title: "NBA Selection Rate", colSpan: 1,
+          uid: "nba-rate", title: "NBA Selection Rate", tone: "purple", colSpan: 1, rowSpan: 5, minRowSpan: 4,
           content: (
-            <Slot>
-              <div className="flex flex-col gap-[10px]">
-                <span style={{ fontSize: 28, fontWeight: 700, color: TXT }}>{a.nbaSelectionRatePct}%</span>
-                <ProgressBar value={a.nbaSelectionRatePct} style="primary" size="m" label="NBA selection rate" />
-                <div className="flex justify-between">
-                  <span style={{ fontSize: 10, color: SUB }}>0%</span>
-                  <span style={{ fontSize: 10, color: SUB }}>100%</span>
-                </div>
-                <span style={{ fontSize: 12, color: SUB }}>Of eligible moments, NBA chose this playbook</span>
+            <div className="flex flex-col gap-[10px]">
+              <span style={{ fontSize: 28, fontWeight: 700, color: TXT }}>{a.nbaSelectionRatePct}%</span>
+              <ProgressBar value={a.nbaSelectionRatePct} style="primary" size="m" label="NBA selection rate" />
+              <div className="flex justify-between">
+                <span style={{ fontSize: 10, color: SUB }}>0%</span>
+                <span style={{ fontSize: 10, color: SUB }}>100%</span>
               </div>
-            </Slot>
+              <span style={{ fontSize: 12, color: SUB }}>Of eligible moments, NBA chose this playbook</span>
+            </div>
           ),
         },
         {
-          uid: "duration-accounts", title: "Avg Plan Duration & Accounts Reached", colSpan: 1,
+          uid: "duration-accounts", title: "Avg Plan Duration & Accounts Reached", tone: "lightBlue", colSpan: 1, rowSpan: 5, minRowSpan: 4,
           content: (
-            <Slot>
-              <div className="flex flex-col gap-[16px]">
-                <div>
-                  <span style={{ fontSize: 28, fontWeight: 700, color: TXT }}>{a.avgPlanDurationDays}</span>
-                  <span style={{ fontSize: 13, color: SUB, marginLeft: 6 }}>days avg duration</span>
-                </div>
-                <div>
-                  <span style={{ fontSize: 28, fontWeight: 700, color: TXT }}>{a.accountsReached}</span>
-                  <span style={{ fontSize: 13, color: SUB, marginLeft: 6 }}>accounts reached</span>
-                </div>
+            <div className="flex flex-col gap-[16px]">
+              <div>
+                <span style={{ fontSize: 28, fontWeight: 700, color: TXT }}>{a.avgPlanDurationDays}</span>
+                <span style={{ fontSize: 13, color: SUB, marginLeft: 6 }}>days avg duration</span>
               </div>
-            </Slot>
+              <div>
+                <span style={{ fontSize: 28, fontWeight: 700, color: TXT }}>{a.accountsReached}</span>
+                <span style={{ fontSize: 13, color: SUB, marginLeft: 6 }}>accounts reached</span>
+              </div>
+            </div>
           ),
         },
 
         // ── Row 3 — trend chart · phase funnel ──
         {
-          uid: "trend", title: "Moments Triggered — Last 8 Weeks", colSpan: 2,
+          uid: "trend", title: "Moments Triggered — Last 8 Weeks", tone: "lightBlue", colSpan: 2, rowSpan: 6, minRowSpan: 4,
           content: (
-            <Slot>
-              <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
-                <span />
+            <div>
+              <div className="flex items-center justify-end" style={{ marginBottom: 8 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: a.momentsTriggeredDeltaPct >= 0 ? "var(--tag-success-fg)" : "var(--tag-error-fg)" }}>
                   {deltaLabel(a.momentsTriggeredDeltaPct, "vs last week")}
                 </span>
               </div>
               <TrendLineChart values={weekly} labels={weekLabels} />
-            </Slot>
+            </div>
           ),
         },
         {
-          uid: "phase-funnel", title: "Phase Completion Funnel", colSpan: 1,
-          content: <Slot><PhaseFunnel playbook={playbook} /></Slot>,
+          uid: "phase-funnel", title: "Phase Completion Funnel", tone: "green", colSpan: 1, rowSpan: 6, minRowSpan: 4,
+          content: <PhaseFunnel playbook={playbook} />,
         },
 
         // ── Row 4 — blocked reasons · approval metrics ──
         {
-          uid: "blocked-reasons", title: "Top Blocked Reasons", widthClass: "half",
-          content: <Slot><BlockedReasonsList playbook={playbook} /></Slot>,
+          uid: "blocked-reasons", title: "Top Blocked Reasons", tone: "orange", widthClass: "half", rowSpan: 6, minRowSpan: 4,
+          content: (
+            <div className="flex flex-col gap-[10px]">
+              <span style={{ fontSize: 11, fontWeight: 600, color: "var(--hi-alert-icon)" }}>{a.blockedTotal} total blocks</span>
+              <BlockedReasonsList playbook={playbook} />
+            </div>
+          ),
         },
         {
-          uid: "approval-metrics", title: "Approval Metrics", widthClass: "half",
+          uid: "approval-metrics", title: "Approval Metrics", tone: "lightBlue", widthClass: "half", rowSpan: 6, minRowSpan: 4,
           content: (
-            <Slot>
-              <div className="flex flex-col gap-[14px]">
-                <div className="flex gap-[20px]">
-                  <div><div style={{ fontSize: 22, fontWeight: 700, color: TXT }}>{a.approvals.approved}</div><div style={{ fontSize: 11, color: SUB }}>Approved</div></div>
-                  <div><div style={{ fontSize: 22, fontWeight: 700, color: TXT }}>{a.approvals.rejected}</div><div style={{ fontSize: 11, color: SUB }}>Rejected</div></div>
-                  <div><div style={{ fontSize: 22, fontWeight: 700, color: TXT }}>{a.approvals.pending}</div><div style={{ fontSize: 11, color: SUB }}>Pending</div></div>
-                </div>
-                <DistributionBar segments={[
-                  { label: "Approved", count: a.approvals.approved, token: "var(--color-surface-success-default)" },
-                  { label: "Rejected", count: a.approvals.rejected, token: "var(--color-surface-error-default)" },
-                  { label: "Pending",  count: a.approvals.pending,  token: "var(--color-surface-alert-default)" },
-                ]} />
-                <span style={{ fontSize: 12, color: SUB }}>Avg approval resolution time: {a.approvals.avgResolutionHours} hours</span>
+            <div className="flex flex-col gap-[14px]">
+              <div className="flex gap-[20px]">
+                <div><div style={{ fontSize: 22, fontWeight: 700, color: TXT }}>{a.approvals.approved}</div><div style={{ fontSize: 11, color: SUB }}>Approved</div></div>
+                <div><div style={{ fontSize: 22, fontWeight: 700, color: TXT }}>{a.approvals.rejected}</div><div style={{ fontSize: 11, color: SUB }}>Rejected</div></div>
+                <div><div style={{ fontSize: 22, fontWeight: 700, color: TXT }}>{a.approvals.pending}</div><div style={{ fontSize: 11, color: SUB }}>Pending</div></div>
               </div>
-            </Slot>
+              <DistributionBar segments={[
+                { label: "Approved", count: a.approvals.approved, token: "var(--color-surface-success-default)" },
+                { label: "Rejected", count: a.approvals.rejected, token: "var(--color-surface-error-default)" },
+                { label: "Pending",  count: a.approvals.pending,  token: "var(--color-surface-alert-default)" },
+              ]} />
+              <span style={{ fontSize: 12, color: SUB }}>Avg approval resolution time: {a.approvals.avgResolutionHours} hours</span>
+            </div>
           ),
         },
       ] satisfies CanvasSlot[]}

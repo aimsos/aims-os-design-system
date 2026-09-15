@@ -39,6 +39,12 @@
       "date": "2026-09-10",
       "by": "Claude (pm-Lex/Playbooks)",
       "note": "False positive — the check matches any 16-64px circle at 50% radius, but PhaseCard's circle (line 181) is a numbered step index ('1', '2', ...), not a person. AvatarCircle sizes initials and hashes a colour from a person's name; there is no person here to represent, so AvatarCircle doesn't fit. This surfaced only after moving config-sections/ under src/screens/pm-lex-playbooks/, which is the first time this check ran against the file."
+    },
+    "hand-rolled-avatar:src/screens/pm-lex-playbooks/PlaybookDetail.tsx": {
+      "verdict": "accepted",
+      "date": "2026-09-15",
+      "by": "Claude (pm-Lex/Playbooks)",
+      "note": "Same false positive as the BuilderWizard/PhasesActionsSection case: an 18px numbered circle (line 144) in the redesigned 'Executes Through N Sequential Phases' panel is a phase index ('1', '2', ...), not a person avatar. AvatarCircle doesn't apply — there's nobody to represent."
     }
   }
 }

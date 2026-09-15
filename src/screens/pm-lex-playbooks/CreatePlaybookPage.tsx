@@ -131,6 +131,8 @@ export default function CreatePlaybookPage({ onCancel, onStartBuilding }: Create
           title="Create Playbook"
           description="Start a new adaptive strategy for NBA-driven 1:1 client plans"
           aux={<WhatYoullDefine />}
+          primaryAction={{ label: "Start Building →", icon: Sparkles, onClick: onStartBuilding, disabled: selected !== "scratch" }}
+          secondaryAction={{ label: "Cancel", onClick: onCancel }}
         />
       )}
     >
@@ -138,21 +140,6 @@ export default function CreatePlaybookPage({ onCancel, onStartBuilding }: Create
         {START_OPTIONS.map(opt => (
           <StartOptionCard key={opt.id} option={opt} selected={selected === opt.id} onSelect={() => setSelected(opt.id)} />
         ))}
-      </div>
-
-      <div className="flex items-center justify-between" style={{ marginTop: 20 }}>
-        <button onClick={onCancel} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 500, color: SUB }}>
-          Cancel
-        </button>
-        {selected === "scratch" && (
-          // variant="primary", not "main" — Guardrails reserve "main" for
-          // Header.primaryAction only. The task places this button inline
-          // below the cards (beside Cancel), not in the header, so it stays
-          // a real DS variant rather than the header-exclusive one.
-          <Button variant="primary" icon={<Sparkles size={14} />} onClick={onStartBuilding}>
-            Start Building →
-          </Button>
-        )}
       </div>
 
       <div

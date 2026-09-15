@@ -2,7 +2,7 @@ import { ArrowLeft } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { HighlightIcon, type HighlightIconVariant } from "@/components/ui/highlight-icon"
+import { HighlightIcon, type HighlightIconVariant, type HighlightIconSize } from "@/components/ui/highlight-icon"
 import { Menu, MenuItem } from "@/components/ui/menu-item"
 import { MoreHorizontal } from "lucide-react"
 import { useState, useRef, useEffect } from "react"
@@ -64,10 +64,12 @@ export interface HeaderProps {
   onBack?: () => void
   /** Keep the back button visible in compress mode (requires backButton={true}). */
   showBackInCompress?: boolean
-  /** Optional Lucide icon shown in a HighlightIcon (size sm). Hidden in compress. */
+  /** Optional Lucide icon shown in a HighlightIcon (size sm by default). Hidden in compress. */
   icon?: LucideIcon
   /** HighlightIcon color variant for the icon slot. Defaults to "informative". */
   iconVariant?: HighlightIconVariant
+  /** HighlightIcon box size for the icon slot. Default "sm" (24px), unchanged for every existing caller. Set "md"/"lg" to sit closer to a size-l title's visual height. */
+  iconSize?: HighlightIconSize
   /**
    * The screen's one prioritised action. Declare WHAT the action is; the DS
    * decides how it looks.
@@ -256,6 +258,7 @@ export function Header({
   showBackInCompress = false,
   icon: Icon,
   iconVariant = "informative",
+  iconSize = "sm",
   primaryAction,
   secondaryAction,
   overflowActions,
@@ -294,10 +297,10 @@ export function Header({
           )}
           {!isCompress && Icon && (
             <HighlightIcon
-              size="sm"
+              size={iconSize}
               variant={iconVariant}
               iconColor="dark"
-              icon={<Icon size={14} strokeWidth={1.75} />}
+              icon={<Icon size={iconSize === "sm" ? 14 : 21} strokeWidth={1.75} />}
               className="shrink-0 mt-[1px]"
             />
           )}
