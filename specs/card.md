@@ -29,7 +29,7 @@ Border width: `0.5px`
 
 | Role | Token / Variable | Figma variable | Light | Dark |
 | --- | --- | --- | --- | --- |
-| Background | --card-default-bg |  | #ffffff | rgba(255,255,255,0.1) |
+| Background | --card-default-bg |  | #ffffff | rgba(255,255,255,0.05) |
 | Border | --card-default-border |  | #bababa | rgba(255,255,255,0.15) |
 | Border hover | --card-default-hover-bd |  | #5c5c5c | rgba(255,255,255,0.1) |
 | Border selected | --card-default-selected-bd |  | #2173ff | #2b7fff |
@@ -41,7 +41,7 @@ Border width: `0.5px`
 
 | Role | Token / Variable | Figma variable | Light | Dark |
 | --- | --- | --- | --- | --- |
-| Background (reused) | --card-default-bg |  | #ffffff | rgba(255,255,255,0.1) |
+| Background (own token) | --card-whiteopacity-bg |  | #ffffff | rgba(255,255,255,0.1) |
 | Border (reused) | --card-default-border |  | #bababa | rgba(255,255,255,0.15) |
 | Border hover (reused) | --card-default-hover-bd |  | #5c5c5c | rgba(255,255,255,0.1) |
 | Border selected (reused) | --card-default-selected-bd |  | #2173ff | #2b7fff |

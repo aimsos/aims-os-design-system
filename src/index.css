@@ -147,8 +147,15 @@
        interpolated inside Tailwind arbitrary gradient strings */
 
     /* ── Card Container tokens — dark ───────────────────── */
-    /* Default / White Opacity — Surface/Neutral/White dark + Border/Neutral/Lighter dark */
-    --card-default-bg:              rgba(255,255,255,0.1);   /* Surface/Neutral/White dark      = White/10  */
+    /* Default — Surface/Card/Default/BG dark + Border/Neutral/Lighter dark
+       The Card's Default style has its own surface token: one step darker than
+       the general white/neutral so a Text field nested inside it (White/10)
+       reads as floating ABOVE the card instead of level with it. */
+    --color-surface-card-default-bg: rgba(255,255,255,0.05); /* Surface/Card/Default/BG dark    = White/5   */
+    --card-default-bg:              var(--color-surface-card-default-bg);
+    /* White Opacity — unchanged, still Surface/Neutral/White. Figma rebound the
+       Default style only, so this style keeps its own binding at White/10. */
+    --card-whiteopacity-bg:         rgba(255,255,255,0.1);   /* Surface/Neutral/White dark      = White/10  */
     --card-default-border:          rgba(255,255,255,0.15);  /* Border/Neutral/Lighter dark     = White/15  */
     --card-default-hover-bd:        rgba(255,255,255,0.1);   /* Border/Neutral/Default dark     = White/10  */
     --card-default-selected-bd:     #2b7fff;                 /* Border/Primary/Default dark                 */
@@ -841,8 +848,12 @@
     --btn-main-ring:           #cbfff4;   /* Main Action focus ring light — DS Border/Success/Subtle */
 
     /* ── Card Container tokens — light ──────────────────── */
-    /* Default / White Opacity — Surface/Neutral/White light + Border/Neutral/Lighter light */
-    --card-default-bg:              #ffffff;                 /* Surface/Neutral/White light     = Gray/100  */
+    /* Default — Surface/Card/Default/BG light + Border/Neutral/Lighter light
+       Same value as the general white in light mode; the two only diverge in dark. */
+    --color-surface-card-default-bg: #ffffff;                /* Surface/Card/Default/BG light   = Gray/100  */
+    --card-default-bg:              var(--color-surface-card-default-bg);
+    /* White Opacity — unchanged, still Surface/Neutral/White. */
+    --card-whiteopacity-bg:         #ffffff;                 /* Surface/Neutral/White light     = Gray/100  */
     --card-default-border:          #bababa;                 /* Border/Neutral/Lighter light    = Gray/500  */
     --card-default-hover-bd:        #5c5c5c;                 /* Border/Neutral/Default light    = Gray/600  */
     --card-default-selected-bd:     #2173ff;                 /* Border/Primary/Default light                */
