@@ -5,7 +5,7 @@ import { Tag } from "@/components/ui/tag"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ModalDialog } from "@/components/ui/modal-dialog"
-import { SectionCard, FieldHeading, HelperText, SelectField } from "./shared"
+import { FormSections, FormSection, FieldHeading, HelperText, SelectField } from "./shared"
 import {
   TENANT_GATE_CATALOG, type TenantGateDef, type GateOverrideState, type HardGatesDraft,
 } from "./types"
@@ -125,7 +125,7 @@ function CustomGatesList({ value, onChange }: HardGatesSectionProps) {
   }
 
   return (
-    <SectionCard title="Custom Gates">
+    <FormSection title="Custom Gates">
       <p style={{ fontSize: 12, color: SUB, margin: 0 }}>
         Define rules that must be respected before this playbook can run. These constraints override default NBA behavior and are enforced during execution.
       </p>
@@ -161,7 +161,7 @@ function CustomGatesList({ value, onChange }: HardGatesSectionProps) {
           ))}
         </div>
       )}
-    </SectionCard>
+    </FormSection>
   )
 }
 
@@ -193,7 +193,7 @@ export function HardGatesSection({ value, onChange }: HardGatesSectionProps) {
   }
 
   return (
-    <div className="flex flex-col gap-[16px]">
+    <div className="flex flex-col gap-[24px]">
       {anyInherited && (
         <div
           className="flex items-start gap-[10px]"
@@ -206,7 +206,8 @@ export function HardGatesSection({ value, onChange }: HardGatesSectionProps) {
         </div>
       )}
 
-      <SectionCard title="Operational Gates">
+      <FormSections>
+      <FormSection title="Operational Gates">
         <HelperText>These gates control operational eligibility and can be overridden at the playbook level with justification.</HelperText>
         <div className="grid grid-cols-3 gap-[12px]">
           {operational.map(g => (
@@ -219,9 +220,9 @@ export function HardGatesSection({ value, onChange }: HardGatesSectionProps) {
             />
           ))}
         </div>
-      </SectionCard>
+      </FormSection>
 
-      <SectionCard title="Legal & Compliance Gates">
+      <FormSection title="Legal & Compliance Gates">
         <HelperText>These gates enforce legal and regulatory requirements. Overrides are subject to compliance review and audit.</HelperText>
         <div className="grid grid-cols-2 gap-[12px]">
           {legal.map(g => (
@@ -234,9 +235,10 @@ export function HardGatesSection({ value, onChange }: HardGatesSectionProps) {
             />
           ))}
         </div>
-      </SectionCard>
+      </FormSection>
 
       <CustomGatesList value={value} onChange={onChange} />
+      </FormSections>
 
       <OverrideGateModal
         gate={overrideTarget}

@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from "react"
-import { Popover } from "@base-ui/react/popover"
-import { Plus, Archive as ArchiveIcon, Copy as CopyIcon, BookOpen } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Plus, Archive as ArchiveIcon, Copy as CopyIcon, BookOpen, Check } from "lucide-react"
 import { ScreenLayout } from "@/components/layouts/screen-layout"
 import type { SidebarItem } from "@/components/ui/sidebar"
 import { Header } from "@/components/ui/header"
@@ -12,7 +11,6 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { Pagination } from "@/components/ui/pagination"
 import { Menu, MenuItem } from "@/components/ui/menu-item"
 import { ModalDialog } from "@/components/ui/modal-dialog"
-import { Button } from "@/components/ui/button"
 import { HighlightIcon } from "@/components/ui/highlight-icon"
 import { Tag } from "@/components/ui/tag"
 import { anchorFromEvent, useDropdownPosition, type DropdownAnchor } from "@/lib/dropdown-anchor"
@@ -23,36 +21,70 @@ import PlaybookDetail, { type DetailTab, type OverviewSubtab } from "./pm-lex-pl
 import CreatePlaybookPage from "./pm-lex-playbooks/CreatePlaybookPage"
 import BuilderWizard from "./pm-lex-playbooks/BuilderWizard"
 
-// ── Step 1 — "+ Create playbook" type chooser (dropdown under the button) ──
+// ── Step 1 — "+ Create playbook" type chooser ──
+//
+// A CATALOGUE SELECTION, so it is a `ModalDialog variant="content"` — the
+// Create pattern's own answer for "browse a catalogue / pick a starting
+// point", and the user cannot ignore it and keep working in the list behind.
+//
+// It used to be a Popover hung off a `Button` in `Header.aux`, purely so the
+// menu had a DOM node to anchor to. That is what forced the trigger out of
+// `primaryAction` and down to `variant="primary"`: `aux` is explicitly NOT a
+// loophole for a CTA (Guardrails, "Header slots"). With the choice living in
+// a modal the trigger is a plain action object again, Header applies
+// `variant="main"` itself, and no screen names a variant.
 
-function CreateTypeOption({ icon, title, subtitle, description, comingSoon, onClick }: {
+type CreateTypeId = "customer" | "internal"
+
+const CREATE_TYPES: {
+  id: CreateTypeId
   icon: string
   title: string
   subtitle: string
   description: string
   comingSoon?: boolean
-  onClick?: () => void
+}[] = [
+  {
+    id: "customer",
+    icon: "Users",
+    title: "Customer Playbook",
+    subtitle: "Adaptive · NBA-driven",
+    description: "Adaptive NBA strategies for customer lifecycle engagement and 1:1 plan execution.",
+  },
+  {
+    // Internal-process wizard path is post-pilot scope — visible but inert,
+    // not hidden, per the handoff guide.
+    id: "internal",
+    icon: "Building2",
+    title: "Internal Playbook",
+    subtitle: "Team · operational",
+    description: "Standard operating procedures for internal teams and cross-functional workflows.",
+    comingSoon: true,
+  },
+]
+
+function CreateTypeOption({ option, selected, onSelect }: {
+  option:   (typeof CREATE_TYPES)[number]
+  selected: boolean
+  onSelect: () => void
 }) {
-  const disabled = !!comingSoon
+  const disabled = !!option.comingSoon
   return (
-    <div
-      onClick={disabled ? undefined : onClick}
-      style={{
-        display: "flex", gap: 10, padding: "10px 10px", borderRadius: 8,
-        cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.55 : 1,
-      }}
-      onMouseEnter={e => { if (!disabled) e.currentTarget.style.background = "var(--menu-item-hover)" }}
-      onMouseLeave={e => { e.currentTarget.style.background = "transparent" }}
-    >
-      <HighlightIcon iconName={icon} variant={disabled ? "neutral" : "informative"} size="sm" />
-      <div className="min-w-0">
-        <div className="flex items-center gap-[6px]">
-          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>{title}</span>
-          {comingSoon && <Tag variant="neutral" size="sm">COMING SOON</Tag>}
+    <div onClick={disabled ? undefined : onSelect} style={{ cursor: disabled ? "not-allowed" : "pointer" }}>
+      <CardContainer selected={selected} disabled={disabled} size="sm" className="flex gap-[10px] items-start h-full">
+        <HighlightIcon iconName={option.icon} variant={selected ? "informative" : "neutral"} size="sm" />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-[6px]">
+            <span style={{ fontSize: 13, fontWeight: 600, color: selected ? "var(--primary)" : "var(--foreground)" }}>{option.title}</span>
+            {option.comingSoon && <Tag variant="neutral" size="sm">COMING SOON</Tag>}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--primary)", fontWeight: 500, marginTop: 1 }}>{option.subtitle}</div>
+          <p style={{ fontSize: 12, color: "var(--field-supporting)", margin: "3px 0 0", lineHeight: 1.4 }}>{option.description}</p>
         </div>
-        <div style={{ fontSize: 11, color: "var(--primary)", fontWeight: 500, marginTop: 1 }}>{subtitle}</div>
-        <p style={{ fontSize: 12, color: "var(--field-supporting)", margin: "3px 0 0", lineHeight: 1.4 }}>{description}</p>
-      </div>
+        {selected && (
+          <HighlightIcon size="sm" variant="informative" icon={<Check size={13} />} />
+        )}
+      </CardContainer>
     </div>
   )
 }
@@ -93,19 +125,42 @@ function trustTooltip(pb: Playbook): string {
   return `${pb.trustControls.confidenceThreshold}% confidence threshold → escalates to ${pb.trustControls.escalatesTo}`
 }
 
+// ── Entity row ────────────────────────────────────────────────────────────
+//
+// THE ATTRIBUTE ROW BELONGS AT THE BOTTOM LEFT (`secondaryMeta`), not beside
+// the title. `primaryMeta` is the one or two facts that CLASSIFY the record —
+// its code and what puts it in play — and it sits inline with the name, where
+// it has to compete with the title for width. Everything else someone scans a
+// playbook for (owner, trust mode, version, how much of it there is) is the
+// bottom row, which is what that row exists for: see the EntityList spec's own
+// demo items, and `pm-lex-htl-work-queue.tsx` for the same split on real data.
+//
+// Six items in `primaryMeta` was the whole reason this row read as a wall:
+// every one of them truncating the title, none of them aligned with anything,
+// and the bottom-left row — the part of the card built to hold exactly this —
+// left empty with only the category tag floating on the right.
 function toEntityItem(pb: Playbook, onOpenMenu: (id: string) => void, onOpen: (id: string) => void): EntityListItemData {
   return {
     id: pb.id,
     title: pb.name,
     avatarName: pb.owner.name,
     description: pb.shortDescription,
+    // Inline with the title: the record's code, and the moment that triggers it.
     primaryMeta: [
       { label: pb.id },
-      { iconName: "Radio",  label: pb.moment.primaryEvent, tooltip: pb.moment.businessMeaning ?? pb.moment.primaryEvent },
-      { iconName: "User",   label: pb.owner.name },
-      { iconName: TRUST_ICON[pb.trustMode], label: pb.trustMode, tooltip: trustTooltip(pb) },
-      { label: pb.version },
-      { label: pb.updatedRelative },
+      { iconName: "Radio", label: pb.moment.primaryEvent, tooltip: pb.moment.businessMeaning ?? pb.moment.primaryEvent },
+    ],
+    // Right zone — freshness, same slot every list in the repo uses for it.
+    timestamp: `Updated ${pb.updatedRelative}`,
+    // Bottom-left attribute row. Five items keeps `secondaryMetaAutoIconAt`
+    // (default 5) from collapsing them to icon-only, so every value stays read
+    // as text rather than as a symbol the reader has to interpret.
+    secondaryMeta: [
+      { iconName: "User",                 label: pb.owner.name,          tooltip: `Owner · ${pb.owner.name}` },
+      { iconName: TRUST_ICON[pb.trustMode], label: pb.trustMode,         tooltip: trustTooltip(pb) },
+      { iconName: "GitBranch",            label: pb.version,             tooltip: `Current version · ${pb.version}` },
+      { iconName: "Layers",               label: `${pb.phaseCount} phases`, tooltip: `${pb.phaseCount} sequential phases` },
+      { iconName: "ShieldCheck",          label: `${pb.gateCount} gates`,   tooltip: `${pb.gateCount} hard gates must pass before execution` },
     ],
     state: { label: pb.status, variant: STATUS_TAG_VARIANT[pb.status] },
     tags: [{ label: pb.categoryTag }],
@@ -166,9 +221,9 @@ export default function PMLexPlaybooksScreen() {
     window.history.replaceState(null, "", `?${params.toString()}${window.location.hash}`)
   }, [detailId, detailTab, detailSubtab])
 
-  // ── Step 1 — "+ Create playbook" type-chooser dropdown ──
-  const [createTypeMenuOpen, setCreateTypeMenuOpen] = useState(false)
-  const createTriggerRef = useRef<HTMLDivElement>(null)
+  // ── Step 1 — "+ Create playbook" type-chooser modal ──
+  const [createTypeOpen, setCreateTypeOpen] = useState(false)
+  const [createType, setCreateType] = useState<CreateTypeId | null>(null)
 
   // ── Step 2 — "Create Playbook" page, synced to ?pbCreate= like the detail route ──
   const [showCreatePage, setShowCreatePage] = useState<boolean>(
@@ -214,9 +269,15 @@ export default function PMLexPlaybooksScreen() {
     setDetailSubtab("what-it-does")
   }
 
-  // Opens the Step 1 type-chooser dropdown (header "+ Create playbook").
+  // Opens the Step 1 type-chooser modal (header "Create playbook").
   function handleCreatePlaybook() {
-    setCreateTypeMenuOpen(o => !o)
+    setCreateType(null)
+    setCreateTypeOpen(true)
+  }
+
+  function handleConfirmCreateType() {
+    setCreateTypeOpen(false)
+    setShowCreatePage(true)
   }
 
   // The empty-state CTA has no dropdown trigger of its own to anchor a
@@ -329,51 +390,11 @@ export default function PMLexPlaybooksScreen() {
           size={isScrolled ? "compress" : "size-l"}
           title="Playbooks"
           description="Design and govern customer execution strategies across adaptive playbooks and deterministic journeys"
-          // Composed in `aux` rather than `primaryAction`: this button opens
-          // a Step 1 type-chooser dropdown, not a plain click action, and
-          // `primaryAction` only supports the latter (Header owns its
-          // rendering, so there's no DOM node to anchor a popover to). The
-          // trigger itself stays variant="primary", not "main" — Guardrails
-          // reserve "main" for Header.primaryAction specifically.
-          aux={
-            <div ref={createTriggerRef}>
-              <Button variant="primary" icon={<Plus size={15} />} onClick={handleCreatePlaybook}>
-                Create playbook
-              </Button>
-              <Popover.Root open={createTypeMenuOpen} onOpenChange={setCreateTypeMenuOpen}>
-                <Popover.Portal>
-                  <Popover.Positioner anchor={createTriggerRef} side="bottom" align="end" sideOffset={4} style={{ zIndex: 10030 }}>
-                    <Popover.Popup
-                      className="flex flex-col rounded-[8px] overflow-hidden"
-                      style={{
-                        width: 320, padding: 6,
-                        background: "var(--surface-floating-default)",
-                        border: "0.5px solid var(--color-border-neutral-subtle)",
-                        boxShadow: "var(--shadow-elevation-5)",
-                      }}
-                    >
-                      <CreateTypeOption
-                        icon="Users"
-                        title="Customer Playbook"
-                        subtitle="Adaptive · NBA-driven"
-                        description="Adaptive NBA strategies for customer lifecycle engagement and 1:1 plan execution."
-                        onClick={() => { setCreateTypeMenuOpen(false); setShowCreatePage(true) }}
-                      />
-                      {/* Internal-process wizard path is post-pilot scope — visible but
-                          inert, not hidden, per the handoff guide. */}
-                      <CreateTypeOption
-                        icon="Building2"
-                        title="Internal Playbook"
-                        subtitle="Team · operational"
-                        description="Standard operating procedures for internal teams and cross-functional workflows."
-                        comingSoon
-                      />
-                    </Popover.Popup>
-                  </Popover.Positioner>
-                </Popover.Portal>
-              </Popover.Root>
-            </div>
-          }
+          // The page's one main action, so it is an ACTION OBJECT in
+          // `primaryAction` and Header applies `variant="main"` itself. The
+          // type choice it used to open as a Popover is now a
+          // `ModalDialog variant="content"` below — see CREATE_TYPES.
+          primaryAction={{ label: "Create playbook", icon: Plus, onClick: handleCreatePlaybook }}
         />
       )}
       pagination={
@@ -469,6 +490,33 @@ export default function PMLexPlaybooksScreen() {
         </>
       ))()}
 
+      {/* ── Step 1 — pick the playbook type ──
+          One CardContainer per option, inside `slotUnstyled`: a dialog never
+          puts all of its content in one card (Guardrails). */}
+      <ModalDialog
+        isOpen={createTypeOpen}
+        onClose={() => setCreateTypeOpen(false)}
+        variant="content"
+        iconName="BookOpen"
+        title="Create playbook"
+        description="Pick the kind of playbook to build. You'll choose a starting point next."
+        slotUnstyled
+        slot={
+          <div className="flex flex-col gap-[12px]">
+            {CREATE_TYPES.map(opt => (
+              <CreateTypeOption
+                key={opt.id}
+                option={opt}
+                selected={createType === opt.id}
+                onSelect={() => setCreateType(opt.id)}
+              />
+            ))}
+          </div>
+        }
+        ctaPrimary={{ label: "Continue", disabled: createType === null, onClick: handleConfirmCreateType }}
+        ctaSecondary={{ label: "Cancel", onClick: () => setCreateTypeOpen(false) }}
+      />
+
       <FiltersSlideout
         isOpen={filtersSlideoutOpen}
         onClose={() => setFiltersSlideoutOpen(false)}
@@ -485,7 +533,7 @@ export default function PMLexPlaybooksScreen() {
         title={archiveTarget ? `Archive "${archiveTarget.name}"?` : "Archive this playbook?"}
         description="Archiving pauses this playbook — no new plans will be triggered until it's restored. Plans already in progress will continue to completion."
         ctaPrimary={{ label: "Archive playbook", destructive: false, onClick: confirmArchive }}
-        ctaSecondary={{ label: "Cancel" }}
+        ctaSecondary={{ label: "Cancel", onClick: () => setArchiveTarget(null) }}
       />
     </ScreenLayout>
   )

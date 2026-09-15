@@ -8,7 +8,7 @@ import { CardContainer } from "@/components/ui/card-container"
 import { ProgressBar } from "@/components/ui/progress-bar"
 import { Slider } from "@/components/ui/slider"
 import { OptionCard } from "@/components/experimental/widget-screen-parts"
-import { SectionCard, FieldHeading, HelperText, SelectField } from "./shared"
+import { FormSections, FormSection, FieldHeading, HelperText, SelectField } from "./shared"
 import {
   TOUCH_GAP_UNITS, OUTREACH_DAYS, PERSONALIZATION_LEVELS, PHASE_TEMPLATES,
   phasesFromTemplate, type PhasesActionsDraft, type PhaseDraft, type SignalPhaseDraft,
@@ -51,7 +51,7 @@ function WideSettings({ value, onChange }: PhasesActionsSectionProps) {
   }
 
   return (
-    <SectionCard title="Playbook-wide settings">
+    <FormSection title="Playbook-wide settings">
       <p style={{ fontSize: 12, color: SUB, margin: 0 }}>
         These rules apply across every phase and override individual phase configurations where they conflict.
       </p>
@@ -59,13 +59,14 @@ function WideSettings({ value, onChange }: PhasesActionsSectionProps) {
       <div>
         <FieldHeading>Minimum time between any two touches</FieldHeading>
         <div className="flex items-center gap-[8px]">
-          <Input
-            type="number"
-            min={0}
-            style={{ maxWidth: 120 }}
-            value={s.minTouchGapValue}
-            onChange={e => patchSettings({ minTouchGapValue: Number(e.target.value) })}
-          />
+          <div style={{ width: 120, flexShrink: 0 }}>
+            <Input
+              type="number"
+              min={0}
+              value={s.minTouchGapValue}
+              onChange={e => patchSettings({ minTouchGapValue: Number(e.target.value) })}
+            />
+          </div>
           <div style={{ width: 160 }}>
             <SelectField
               placeholder="Unit"
@@ -80,7 +81,7 @@ function WideSettings({ value, onChange }: PhasesActionsSectionProps) {
 
       <div>
         <FieldHeading>Quiet hours</FieldHeading>
-        <div className="grid grid-cols-2 gap-[16px]">
+        <div className="grid grid-cols-2 gap-[16px]" style={{ maxWidth: 440 }}>
           <div>
             <span style={{ fontSize: 12, color: SUB }}>No outreach before</span>
             <Input type="time" value={s.quietHoursStart} onChange={e => patchSettings({ quietHoursStart: e.target.value })} />
@@ -107,7 +108,7 @@ function WideSettings({ value, onChange }: PhasesActionsSectionProps) {
 
       <div>
         <FieldHeading>Timezone</FieldHeading>
-        <div className="grid grid-cols-2 gap-[12px]">
+        <div className="grid grid-cols-2 gap-[12px]" style={{ maxWidth: 736 }}>
           <OptionCard
             icon="User"
             title="Customer's timezone"
@@ -125,7 +126,7 @@ function WideSettings({ value, onChange }: PhasesActionsSectionProps) {
         </div>
         <HelperText>Quiet hours and day restrictions apply relative to the customer's timezone by default.</HelperText>
       </div>
-    </SectionCard>
+    </FormSection>
   )
 }
 
@@ -142,7 +143,7 @@ function PersonalizationGuardrail({ value, onChange }: PhasesActionsSectionProps
   const pct = Math.round((level.fieldsUsed / level.fieldsTotal) * 100)
 
   return (
-    <SectionCard title="Messaging Personalization Level">
+    <FormSection title="Messaging Personalization Level">
       <div className="flex items-center gap-[8px]">
         <Tag variant="purple" size="sm">NBA Guardrail</Tag>
         <span style={{ fontSize: 13, fontWeight: 600, color: TXT }}>{level.level} · {level.label}</span>
@@ -161,7 +162,7 @@ function PersonalizationGuardrail({ value, onChange }: PhasesActionsSectionProps
       <ProgressBar value={pct} style="purple" size="m" label="Personalization depth" />
 
       <p style={{ fontSize: 12, color: SUB, margin: 0 }}>{level.description}</p>
-    </SectionCard>
+    </FormSection>
   )
 }
 
@@ -250,7 +251,7 @@ function SequentialPhases({ value, onChange, isCreateContext }: PhasesActionsSec
   const showTemplates = isCreateContext && !value.templatesDismissed && value.phases.length === 0
 
   return (
-    <SectionCard title="Sequential Phases">
+    <FormSection title="Sequential Phases">
       <div className="flex items-center justify-between">
         <span style={{ fontSize: 12, fontWeight: 600, color: SUB }}>{value.phases.length} phases configured</span>
         <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--primary)" }}>
@@ -287,7 +288,7 @@ function SequentialPhases({ value, onChange, isCreateContext }: PhasesActionsSec
       <div>
         <Button variant="secondary" size="sm" icon={<Plus size={13} />} onClick={addPhase}>Add Phase</Button>
       </div>
-    </SectionCard>
+    </FormSection>
   )
 }
 
@@ -305,7 +306,7 @@ function SignalPhases({ value, onChange }: PhasesActionsSectionProps) {
   }
 
   return (
-    <SectionCard title="Signal Phases">
+    <FormSection title="Signal Phases">
       <p style={{ fontSize: 12, color: SUB, margin: 0 }}>
         Configure how the agent responds when a customer engagement signal is detected, independent of the outreach cadence above.
       </p>
@@ -328,7 +329,7 @@ function SignalPhases({ value, onChange }: PhasesActionsSectionProps) {
       <div>
         <Button variant="secondary" size="sm" icon={<Plus size={13} />} onClick={addSignalPhase}>Add signal phase</Button>
       </div>
-    </SectionCard>
+    </FormSection>
   )
 }
 
@@ -336,11 +337,11 @@ function SignalPhases({ value, onChange }: PhasesActionsSectionProps) {
 
 export function PhasesActionsSection(props: PhasesActionsSectionProps) {
   return (
-    <div className="flex flex-col gap-[16px]">
+    <FormSections>
       <WideSettings {...props} />
       <PersonalizationGuardrail {...props} />
       <SequentialPhases {...props} />
       <SignalPhases {...props} />
-    </div>
+    </FormSections>
   )
 }

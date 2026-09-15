@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useLayoutEffect, useState } from "react"
 
 /**
  * Dropdown anchoring — AIMS OS Design System
@@ -27,6 +27,24 @@ import { useLayoutEffect, useRef, useState } from "react"
  * Panels here are `w-auto`, so the width is not known until the panel is in
  * the DOM. The hook measures it before paint (useLayoutEffect) and flips in
  * the same frame, so the user never sees it jump.
+ *
+ * THE PANEL IS TRACKED BY A CALLBACK REF, NOT A `useRef` (fixed 2026-09-15).
+ *
+ * The measurement used to run on `[anchor]` alone against a `useRef`, and bailed
+ * out when `ref.current` was still null. That is fine only when the panel's
+ * render is gated on the anchor and nothing else. A per-row kebab menu is gated
+ * on TWO things — which row's menu is open, and where it was clicked — and those
+ * two do not always land in the same render: the anchor is set in the capture
+ * phase on a wrapper, the row id in the bubble phase on the button. On the
+ * render where the anchor arrives the panel is not mounted yet, so the effect
+ * returned early, and since `anchor` never changed again it never re-ran. The
+ * panel stayed left-aligned for the life of that open — which on a trigger at
+ * the right edge of the page is the exact clipped panel the flip exists to
+ * prevent (seen on the Playbooks list's kebab menu).
+ *
+ * A callback ref makes the node itself a dependency, so the measurement happens
+ * when the panel actually mounts, whichever render that is. `ref` still spreads
+ * onto the panel exactly as before — no caller changes.
  *
  * Usage:
  *
@@ -120,12 +138,13 @@ const MIN_PANEL_HEIGHT = 140
  * panel would cross the viewport's right edge.
  */
 export function useDropdownPosition(anchor: DropdownAnchor | null) {
-  const ref = useRef<HTMLDivElement>(null)
+  const [panel, setPanel] = useState<HTMLDivElement | null>(null)
+  const ref = useCallback((el: HTMLDivElement | null) => setPanel(el), [])
   const [placement, setPlacement] = useState({ flipX: false, flipY: false, maxHeight: 0 })
 
   useLayoutEffect(() => {
-    if (!anchor || !ref.current) return
-    const el = ref.current
+    if (!anchor || !panel) return
+    const el = panel
     // scrollHeight, not offsetHeight: the cap from a previous open would make
     // offsetHeight report the cap back to us and the panel would never unflip.
     const wanted = el.scrollHeight
@@ -146,7 +165,7 @@ export function useDropdownPosition(anchor: DropdownAnchor | null) {
       // would get a scroll container it has no use for.
       maxHeight: wanted > room ? Math.max(MIN_PANEL_HEIGHT, room) : 0,
     })
-  }, [anchor])
+  }, [anchor, panel])
 
   const { flipX, flipY, maxHeight } = placement
 

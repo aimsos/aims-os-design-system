@@ -1,103 +1,28 @@
 // ────────────────────────────────────────────────────────────────────────
-// Overview → "Activity / Usage" sub-tab.
+// Overview → "Activity" sub-view.
 //
-// DS Health currently lists chart-shaped widgets (trend lines, funnels, stat
-// tiles, progress rings) as awaiting a spec — src/ds-health.json's
-// "widget-vocab" check exists specifically because screens kept inventing
-// their own parallel widget-type lists instead of using the one catalog
-// (WIDGET_DEFS in src/App.tsx, surfaced as Patterns → Widgets). This file
-// does not declare a second vocabulary: where a shape here matches an
-// existing WIDGET_DEFS entry (kpi, charts) that's noted in a comment: where
-// it doesn't (progress ring, funnel, ranked bar list, distribution bar),
-// it's a local component marked `// DS-GAP: not yet in catalog`, same
-// convention as src/components/experimental/widget-chart-content.tsx (whose
-// FunnelChart/GaugeChart this borrows visual language from — dashed grid,
-// ProgressBar per row, arc-based ring).
+// Every widget here is one of the shapes the product already names — KPI,
+// Gauge, Line, Bar and the catalog's Status Warning counter. The four
+// one-off charts this file used to carry (progress ring, phase funnel,
+// ranked bar list, 3-segment distribution bar) were each marked
+// `// DS-GAP: not yet in catalog`, and none of them actually was a gap: see
+// the header of ./widget-content.tsx for which existing shape each one
+// turned out to be.
+//
+// Nothing about the DATA changed — every number still comes from
+// playbook.activity, and the one derived series (the 8-week trend) is
+// derived the same deterministic way it always was.
 // ────────────────────────────────────────────────────────────────────────
 
-import type { ReactNode } from "react"
-import { Zap, PlayCircle, Bot, UserCheck } from "lucide-react"
-import { CardContainer } from "@/components/ui/card-container"
-import { HighlightIcon } from "@/components/ui/highlight-icon"
-import type { HighlightIconVariant } from "@/components/ui/highlight-icon"
-import { ProgressBar, type ProgressBarStyle } from "@/components/ui/progress-bar"
 import { WidgetCanvasView, type CanvasSlot } from "@/components/layouts/widget-canvas-view"
-
+import { KpiContent, GaugeContent, BarContent, StatusCounterContent, LineContent, type BarRow } from "./widget-content"
 import type { Playbook } from "./playbooks-data"
 
-const TXT = "var(--foreground)"
-const SUB = "var(--field-supporting)"
-
-// ── Row 1 — stat tiles ("kpi" in WIDGET_DEFS: single metric + feedback text) ──
-
-function ActivityStatTile({ label, value, sub, icon, iconVariant = "informative", tone }: {
-  label: string
-  value: string | number
-  sub: string
-  icon: React.ComponentType<{ size?: number }>
-  iconVariant?: HighlightIconVariant
-  tone?: "yellow" // amber-tinted tile, for Approvals Required
-}) {
-  const Icon = icon
-  return (
-    <CardContainer size="sm" variant={tone ?? "default"} className="flex flex-col gap-[10px]">
-      <div className="flex items-center justify-between">
-        <span style={{ fontSize: 12, fontWeight: 600, color: SUB }}>{label}</span>
-        <HighlightIcon icon={<Icon size={14} />} variant={iconVariant} size="sm" />
-      </div>
-      <span style={{ fontSize: 28, fontWeight: 700, lineHeight: 1, color: TXT }}>{value}</span>
-      <span style={{ fontSize: 12, color: SUB }}>{sub}</span>
-    </CardContainer>
-  )
-}
+const SUB = "var(--color-text-subtitle)"
 
 function deltaLabel(pct: number, suffix: string): string {
   return `${pct >= 0 ? "+" : ""}${pct}% ${suffix}`
 }
-
-// ── Row 2a — Plan Success Rate ── DS-GAP: not yet in catalog (circular progress ring)
-
-function ProgressRing({ pct, size = 96, strokeWidth = 10, style = "success" as ProgressBarStyle }: {
-  pct: number
-  size?: number
-  strokeWidth?: number
-  style?: ProgressBarStyle
-}) {
-  const r = (size - strokeWidth) / 2
-  const c = 2 * Math.PI * r
-  const clamped = Math.max(0, Math.min(100, pct))
-  const RING_TOKEN: Record<ProgressBarStyle, string> = {
-    primary:      "var(--color-surface-primary-default)",
-    success:      "var(--color-surface-success-default)",
-    alert:        "var(--color-surface-alert-default)",
-    error:        "var(--color-surface-error-default)",
-    yellow:       "var(--color-surface-yellow-default)",
-    "light-blue": "var(--color-surface-light-blue-default)",
-    purple:       "var(--color-surface-purple-default)",
-  }
-  return (
-    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)" }}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--field-border)" strokeWidth={strokeWidth} />
-        <circle
-          cx={size / 2} cy={size / 2} r={r} fill="none"
-          stroke={RING_TOKEN[style]} strokeWidth={strokeWidth} strokeLinecap="round"
-          strokeDasharray={`${c * (clamped / 100)} ${c}`}
-        />
-      </svg>
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ fontSize: 22, fontWeight: 700, color: TXT }}>{clamped}%</span>
-      </div>
-    </div>
-  )
-}
-
-// ── Row 2b — NBA Selection Rate (uses the real DS ProgressBar) ──
-
-// ── Row 3a — 8-week trend ── closest WIDGET_DEFS match: "charts" (Charts
-// Widget — "linear performance trend visualization... W1–W4/weekly periods").
-// Visual language (dashed grid, axis labels) mirrors ChartsWidgetContent /
-// widget-chart-content.tsx's LineChart.
 
 // The data model (playbooks-data.ts ActivityMetrics) carries only the
 // aggregate momentsTriggered total and one week-over-week delta — no full
@@ -117,108 +42,33 @@ function deriveWeeklySeries(pb: Playbook): number[] {
   return raw.map(v => Math.max(1, Math.round((v * total) / sum)))
 }
 
-function TrendLineChart({ values, labels }: { values: number[]; labels: string[] }) {
-  const max = Math.max(...values, 1)
-  const toPath = (pts: number[]) =>
-    pts.map((v, i) => `${(i / (pts.length - 1)) * 100},${100 - (v / max) * 100}`).join(" L ")
+// Phases shrink left-to-right, so the funnel is a Bar whose rows are already
+// percentages of the first phase. Colour rotates rather than repeating one
+// style down the column.
+const FUNNEL_STYLES = ["primary", "purple", "light-blue", "yellow"] as const
 
-  return (
-    <div>
-      <div style={{ height: 120 }}>
-        <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <line key={i} x1="0" x2="100" y1={(i * 100) / 4} y2={(i * 100) / 4}
-              stroke="var(--field-border)" strokeWidth="0.5" strokeDasharray="2,4" vectorEffect="non-scaling-stroke" />
-          ))}
-          <line x1="0" x2="100" y1="100" y2="100" stroke="var(--field-border)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-          <path d={`M ${toPath(values)}`} fill="none" stroke="var(--color-surface-primary-default)" strokeWidth="2"
-            strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-        </svg>
-      </div>
-      <div className="flex justify-between" style={{ marginTop: 6 }}>
-        {labels.map(l => <span key={l} style={{ fontSize: 10, color: SUB }}>{l}</span>)}
-      </div>
-    </div>
-  )
+function phaseRows(pb: Playbook): BarRow[] {
+  return pb.phases.flatMap((phase, i) => {
+    const step = pb.activity.phaseFunnel.find(f => f.phase === phase.name)
+    if (!step) return []
+    return [{
+      label: `${i + 1}. ${phase.name}`,
+      pct:   step.pct,
+      value: `${step.pct}% · ${step.count}`,
+      style: FUNNEL_STYLES[i % FUNNEL_STYLES.length],
+    }]
+  })
 }
 
-// ── Row 3b — Phase Completion Funnel ── DS-GAP: not yet in catalog.
-// Composed from the real ProgressBar (same pattern as
-// widget-chart-content.tsx's FunnelChart) — the funnel shape itself, one bar
-// per phase shrinking left-to-right, has no catalog entry yet.
-
-const FUNNEL_STYLES: ProgressBarStyle[] = ["primary", "purple", "light-blue", "yellow"]
-
-function PhaseFunnel({ playbook }: { playbook: Playbook }) {
-  return (
-    <div className="flex flex-col gap-[10px]">
-      {playbook.phases.map((phase, i) => {
-        const step = playbook.activity.phaseFunnel.find(f => f.phase === phase.name)
-        if (!step) return null
-        return (
-          <div key={phase.id} className="flex items-center gap-[10px]">
-            <span style={{ fontSize: 11, color: SUB, width: 120, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {phase.name}
-            </span>
-            <ProgressBar className="flex-1 min-w-0" value={step.pct} style={FUNNEL_STYLES[i % FUNNEL_STYLES.length]} size="m" label={`${phase.name} — ${step.pct}%`} />
-            <span style={{ fontSize: 11, fontWeight: 600, color: TXT, width: 34, textAlign: "right" }}>{step.pct}%</span>
-            <span style={{ fontSize: 11, color: SUB, width: 68, textAlign: "right", flexShrink: 0 }}>{step.count} plans</span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-// ── Row 4a — Top Blocked Reasons ── DS-GAP: not yet in catalog (ranked bar list)
-
-function BlockedReasonsList({ playbook }: { playbook: Playbook }) {
-  const reasons = playbook.activity.blockedReasons
+function blockedRows(pb: Playbook): BarRow[] {
+  const reasons = pb.activity.blockedReasons
   const max = Math.max(...reasons.map(r => r.count), 1)
-  return (
-    <div className="flex flex-col gap-[10px]">
-      <span style={{ fontSize: 12, fontWeight: 600, color: SUB }}>{playbook.activity.blockedTotal} blocked total</span>
-      {reasons.map(r => (
-        <div key={r.reason} className="flex items-center gap-[10px]">
-          <span style={{ fontSize: 12, color: TXT, width: 160, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {r.reason}
-          </span>
-          <ProgressBar className="flex-1 min-w-0" value={(r.count / max) * 100} style="error" size="s" label={`${r.reason} — ${r.count}`} />
-          <span style={{ fontSize: 12, fontWeight: 600, color: TXT, width: 24, textAlign: "right", flexShrink: 0 }}>{r.count}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ── Row 4b — Approval Metrics ── DS-GAP: not yet in catalog (3-segment
-// distribution bar — ProgressBar only fills a single segment).
-
-function DistributionBar({ segments }: { segments: { label: string; count: number; token: string }[] }) {
-  const total = segments.reduce((s, seg) => s + seg.count, 0) || 1
-  return (
-    <div className="flex flex-col gap-[8px]">
-      <div className="flex w-full overflow-hidden" style={{ height: 8, borderRadius: "var(--pb-radius)", background: "var(--field-border)" }}>
-        {segments.map(seg => (
-          <div key={seg.label} style={{ width: `${(seg.count / total) * 100}%`, background: seg.token }} />
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-[12px]">
-        {segments.map(seg => (
-          <span key={seg.label} className="inline-flex items-center gap-[6px]" style={{ fontSize: 12, color: SUB }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: seg.token, flexShrink: 0 }} />
-            {seg.label} · {seg.count} ({Math.round((seg.count / total) * 100)}%)
-          </span>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// ── Layout ────────────────────────────────────────────────────────────────
-
-function Slot({ children }: { children: ReactNode }) {
-  return <div style={{ padding: "0 16px 16px" }}>{children}</div>
+  return reasons.map(r => ({
+    label: r.reason,
+    pct:   (r.count / max) * 100,
+    value: String(r.count),
+    style: "error" as const,
+  }))
 }
 
 export function ActivityUsage({ playbook }: { playbook: Playbook }) {
@@ -229,120 +79,124 @@ export function ActivityUsage({ playbook }: { playbook: Playbook }) {
   return (
     <WidgetCanvasView
       initialSlots={[
-        // ── Row 1 — stat tiles ──
-        // One combined full-width slot (not 4 separate ones): 4 equal-width
-        // items don't divide evenly into the canvas's 12-column grid (narrow
-        // = 4 cols, so 4×narrow = 16), which left a 4th tile spilling into
-        // row 2 and cascading misalignment through every row below it. This
-        // mirrors the same repo's own precedent for the same shape
-        // (pm-lex-htl-work-queue.tsx's "kpi-summary" slot bundles several
-        // stats into one widget for the same reason).
+        // ── Row 1 — volume, as three KPI widgets ──
+        // Three, not four tiles bundled into one widget: colSpan 1 is 4 of the
+        // canvas's 12 columns, so three narrow widgets fill a row exactly. The
+        // old version packed four CardContainers inside ONE widget, which put a
+        // card inside a card and made the fourth tile the reason the row could
+        // not divide evenly in the first place.
         {
-          uid: "activity-stats", title: "Activity Summary", colSpan: 3,
+          uid: "kpi-moments", title: "Moments Triggered", colSpan: 1, rowSpan: 3, minRowSpan: 3, maxRowSpan: 3,
           content: (
-            <Slot>
-              <div className="grid gap-[12px]" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
-                <ActivityStatTile label="Moments Triggered"   value={a.momentsTriggered}   sub={deltaLabel(a.momentsTriggeredDeltaPct, "vs last week")} icon={Zap}        iconVariant="informative" />
-                <ActivityStatTile label="Plans Instantiated"  value={a.plansInstantiated}  sub={`${a.conversionRatePct}% conversion rate`}               icon={PlayCircle} iconVariant="light-blue" />
-                <ActivityStatTile label="Auto-Executed"       value={a.autoExecuted}       sub={`${a.autoExecutedPct}% of total plans`}                  icon={Bot}        iconVariant="purple" />
-                <ActivityStatTile label="Approvals Required"  value={a.approvalsRequired}  sub={`${a.approvalsRequiredPct}% of total plans`}             icon={UserCheck}  iconVariant="alert" tone="yellow" />
-              </div>
-            </Slot>
+            <KpiContent
+              value={a.momentsTriggered}
+              feedback={deltaLabel(a.momentsTriggeredDeltaPct, "vs last week")}
+              iconName="Zap"
+              iconVariant="informative"
+            />
+          ),
+        },
+        {
+          uid: "kpi-plans", title: "Plans Instantiated", colSpan: 1, rowSpan: 3, minRowSpan: 3, maxRowSpan: 3,
+          content: (
+            <KpiContent
+              value={a.plansInstantiated}
+              feedback={`${a.conversionRatePct}% conversion rate`}
+              iconName="PlayCircle"
+              iconVariant="light-blue"
+            />
+          ),
+        },
+        {
+          uid: "kpi-accounts", title: "Accounts Reached", colSpan: 1, rowSpan: 3, minRowSpan: 3, maxRowSpan: 3,
+          content: (
+            <KpiContent
+              value={a.accountsReached}
+              feedback={`${a.avgPlanDurationDays} days average plan duration`}
+              iconName="Users"
+              iconVariant="purple"
+            />
           ),
         },
 
-        // ── Row 2 — success rate ring · NBA rate bar · duration/accounts ──
+        // ── Row 2 — the two ratios read against a target, as Gauges ──
         {
-          uid: "success-rate", title: "Plan Success Rate", colSpan: 1,
+          uid: "gauge-success", title: "Plan Success Rate", colSpan: 1, rowSpan: 5,
           content: (
-            <Slot>
-              <div className="flex flex-col items-center gap-[10px]">
-                <ProgressRing pct={a.planSuccessRatePct} style="success" />
-                <div className="flex flex-col items-center" style={{ textAlign: "center" }}>
-                  <span style={{ fontSize: 12, color: TXT }}>{a.successCount} plans reached the primary success event</span>
-                  <span style={{ fontSize: 12, color: SUB, marginTop: 4 }}>{a.exitedWithoutSuccessPct}% exited without success</span>
-                </div>
-              </div>
-            </Slot>
+            <GaugeContent
+              pct={a.planSuccessRatePct}
+              style="success"
+              caption={`${a.successCount} plans reached the primary success event`}
+              sub={`${a.exitedWithoutSuccessPct}% exited without success`}
+            />
           ),
         },
         {
-          uid: "nba-rate", title: "NBA Selection Rate", colSpan: 1,
+          uid: "gauge-nba", title: "NBA Selection Rate", colSpan: 1, rowSpan: 5,
           content: (
-            <Slot>
-              <div className="flex flex-col gap-[10px]">
-                <span style={{ fontSize: 28, fontWeight: 700, color: TXT }}>{a.nbaSelectionRatePct}%</span>
-                <ProgressBar value={a.nbaSelectionRatePct} style="primary" size="m" label="NBA selection rate" />
-                <div className="flex justify-between">
-                  <span style={{ fontSize: 10, color: SUB }}>0%</span>
-                  <span style={{ fontSize: 10, color: SUB }}>100%</span>
-                </div>
-                <span style={{ fontSize: 12, color: SUB }}>Of eligible moments, NBA chose this playbook</span>
-              </div>
-            </Slot>
+            <GaugeContent
+              pct={a.nbaSelectionRatePct}
+              style="primary"
+              caption="Of eligible moments, NBA chose this playbook"
+            />
           ),
         },
+        // How the plans that ran were governed — three ways one total splits,
+        // which is the catalog's Status Warning counter.
         {
-          uid: "duration-accounts", title: "Avg Plan Duration & Accounts Reached", colSpan: 1,
+          uid: "execution-mode", title: "How Plans Executed", colSpan: 1, rowSpan: 5,
           content: (
-            <Slot>
-              <div className="flex flex-col gap-[16px]">
-                <div>
-                  <span style={{ fontSize: 28, fontWeight: 700, color: TXT }}>{a.avgPlanDurationDays}</span>
-                  <span style={{ fontSize: 13, color: SUB, marginLeft: 6 }}>days avg duration</span>
-                </div>
-                <div>
-                  <span style={{ fontSize: 28, fontWeight: 700, color: TXT }}>{a.accountsReached}</span>
-                  <span style={{ fontSize: 13, color: SUB, marginLeft: 6 }}>accounts reached</span>
-                </div>
-              </div>
-            </Slot>
+            <StatusCounterContent
+              columns={[
+                { label: "Auto",     value: a.autoExecuted,     iconName: "Bot",       iconVariant: "purple",      sub: `${a.autoExecutedPct}%` },
+                { label: "Approval", value: a.approvalsRequired, iconName: "UserCheck", iconVariant: "alert",       sub: `${a.approvalsRequiredPct}%` },
+                { label: "Blocked",  value: a.blockedTotal,      iconName: "Ban",       iconVariant: "error",       sub: "total" },
+              ]}
+            />
           ),
         },
 
-        // ── Row 3 — trend chart · phase funnel ──
+        // ── Row 3 — trend over time (Line) beside the funnel (Bar) ──
         {
-          uid: "trend", title: "Moments Triggered — Last 8 Weeks", colSpan: 2,
+          uid: "trend", title: "Moments Triggered — Last 8 Weeks", colSpan: 2, rowSpan: 5,
           content: (
-            <Slot>
-              <div className="flex items-center justify-between" style={{ marginBottom: 8 }}>
-                <span />
+            <LineContent
+              values={weekly}
+              labels={weekLabels}
+              delta={
                 <span style={{ fontSize: 12, fontWeight: 600, color: a.momentsTriggeredDeltaPct >= 0 ? "var(--tag-success-fg)" : "var(--tag-error-fg)" }}>
                   {deltaLabel(a.momentsTriggeredDeltaPct, "vs last week")}
                 </span>
-              </div>
-              <TrendLineChart values={weekly} labels={weekLabels} />
-            </Slot>
+              }
+            />
           ),
         },
         {
-          uid: "phase-funnel", title: "Phase Completion Funnel", colSpan: 1,
-          content: <Slot><PhaseFunnel playbook={playbook} /></Slot>,
+          uid: "phase-funnel", title: "Phase Completion", colSpan: 1, rowSpan: 5,
+          content: <BarContent rows={phaseRows(playbook)} labelWidth={130} />,
         },
 
-        // ── Row 4 — blocked reasons · approval metrics ──
+        // ── Row 4 — what stopped plans (Bar) beside approval outcomes ──
         {
-          uid: "blocked-reasons", title: "Top Blocked Reasons", widthClass: "half",
-          content: <Slot><BlockedReasonsList playbook={playbook} /></Slot>,
+          uid: "blocked-reasons", title: "Top Blocked Reasons", colSpan: 2, rowSpan: 6,
+          content: (
+            <div className="flex flex-col gap-[10px]">
+              <span style={{ fontSize: 12, fontWeight: 600, color: SUB }}>{a.blockedTotal} blocked total</span>
+              <BarContent rows={blockedRows(playbook)} labelWidth={190} size="s" />
+            </div>
+          ),
         },
         {
-          uid: "approval-metrics", title: "Approval Metrics", widthClass: "half",
+          uid: "approvals", title: "Approval Outcomes", colSpan: 1, rowSpan: 5,
           content: (
-            <Slot>
-              <div className="flex flex-col gap-[14px]">
-                <div className="flex gap-[20px]">
-                  <div><div style={{ fontSize: 22, fontWeight: 700, color: TXT }}>{a.approvals.approved}</div><div style={{ fontSize: 11, color: SUB }}>Approved</div></div>
-                  <div><div style={{ fontSize: 22, fontWeight: 700, color: TXT }}>{a.approvals.rejected}</div><div style={{ fontSize: 11, color: SUB }}>Rejected</div></div>
-                  <div><div style={{ fontSize: 22, fontWeight: 700, color: TXT }}>{a.approvals.pending}</div><div style={{ fontSize: 11, color: SUB }}>Pending</div></div>
-                </div>
-                <DistributionBar segments={[
-                  { label: "Approved", count: a.approvals.approved, token: "var(--color-surface-success-default)" },
-                  { label: "Rejected", count: a.approvals.rejected, token: "var(--color-surface-error-default)" },
-                  { label: "Pending",  count: a.approvals.pending,  token: "var(--color-surface-alert-default)" },
-                ]} />
-                <span style={{ fontSize: 12, color: SUB }}>Avg approval resolution time: {a.approvals.avgResolutionHours} hours</span>
-              </div>
-            </Slot>
+            <StatusCounterContent
+              columns={[
+                { label: "Approved", value: a.approvals.approved, iconName: "Check",   iconVariant: "success" },
+                { label: "Rejected", value: a.approvals.rejected, iconName: "X",       iconVariant: "error"   },
+                { label: "Pending",  value: a.approvals.pending,  iconName: "Clock",   iconVariant: "alert"   },
+              ]}
+              footnote={`Average resolution time: ${a.approvals.avgResolutionHours} hours`}
+            />
           ),
         },
       ] satisfies CanvasSlot[]}

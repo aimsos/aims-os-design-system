@@ -16,7 +16,7 @@
 
 import { useState, type ReactNode } from "react"
 import {
-  ArrowLeft, ArrowRight, Save, Check, ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp,
   Clock, RadioTower, Sparkles, ShieldAlert, ShieldCheck,
 } from "lucide-react"
 import { ScreenLayout } from "@/components/layouts/screen-layout"
@@ -25,6 +25,8 @@ import { Header } from "@/components/ui/header"
 import { Breadcrumb } from "@/components/ui/breadcrumb"
 import { Tag } from "@/components/ui/tag"
 import { Button } from "@/components/ui/button"
+import { Stepper, type StepItem } from "@/components/ui/stepper"
+import { StepperNavFooter } from "@/components/ui/stepper-nav-footer"
 import { CardContainer } from "@/components/ui/card-container"
 import { Textarea } from "@/components/ui/textarea"
 
@@ -455,11 +457,6 @@ export default function BuilderWizard({ onCancel, onFinish }: BuilderWizardProps
   function goBack() { if (stepIndex > 0) setStep(WIZARD_STEPS[stepIndex - 1].id) }
   function goContinue() { if (stepIndex < WIZARD_STEPS.length - 1) setStep(WIZARD_STEPS[stepIndex + 1].id) }
 
-  // Tenant defaults are auto-applied the moment the Hard Gates draft exists
-  // (every catalog gate starts "inherited") — the pill's sub-label reflects
-  // that immediately, not some later user action.
-  const hardGatesDefaultsApplied = TENANT_GATE_CATALOG.every(g => draft.hardGates.gateStates[g.id] !== undefined)
-
   // TODO(future prompt): persist as a real draft revision. Stub for now —
   // same pattern as the Configuration tab's "Save Changes".
   function handleSaveDraft() {}
@@ -484,35 +481,43 @@ export default function BuilderWizard({ onCancel, onFinish }: BuilderWizardProps
     trust:      <TrustControlsSection value={draft.trustControls} onChange={patch => setDraft(d => ({ ...d, trustControls: { ...d.trustControls, ...patch } }))} />,
   }
 
+  // Step state is the step's OWN completeness, not "is it behind the cursor".
+  // The wizard lets you jump anywhere, so "everything to the left is done" would
+  // be a lie; a tick here means that step's required fields are actually filled.
+  // It also retires the "Defaults applied" badge the old pill row carried for
+  // Hard Gates — a completed step already says that, in the component's own
+  // vocabulary rather than a Tag bolted onto a hand-built pill.
+  const steps: StepItem[] = WIZARD_STEPS.map(s => {
+    if (s.id === step) return { label: s.label, state: "active" as const }
+    if (s.id === "review") return { label: s.label, state: "default" as const }
+    const items = stepProgress(s.id, draft)
+    const done = items.filter(i => i.required).every(i => i.complete)
+    return { label: s.label, state: done ? ("completed" as const) : ("default" as const) }
+  })
+
   return (
     <ScreenLayout
       sidebarItems={SIDEBAR_ITEMS}
       activeSidebarId="playbooks"
+      // No Sidebar while a full-page create WIZARD is open (Create pattern) —
+      // it has the most work to lose, and Cancel in the footer is the way out.
+      hideSidebar
       stickyFooter
       pagination={
-        <div
-          className="flex items-center justify-between"
-          style={{ height: 72, padding: "0 32px", background: "var(--surface)", borderTop: "1px solid var(--field-border)" }}
-        >
-          <div className="flex items-center gap-[8px]">
-            {stepIndex > 0 && (
-              <Button variant="secondary" size="default" icon={<ArrowLeft size={14} />} onClick={goBack}>Back</Button>
-            )}
-            {step !== "review" && (
-              <button onClick={onCancel} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 500, color: SUB }}>
-                Cancel
-              </button>
-            )}
-          </div>
-          {step === "review" ? (
-            <Button variant="primary" icon={<Check size={14} />} onClick={handleFinish}>Finish Playbook</Button>
-          ) : (
-            <div className="flex items-center gap-[16px]">
-              <span style={{ fontSize: 12, color: SUB }}>{required.complete} / {required.total} required fields complete</span>
-              <Button variant="primary" icon={<ArrowRight size={14} />} onClick={goContinue}>Continue</Button>
-            </div>
-          )}
-        </div>
+        // The DS's own wizard footer, instead of a hand-built 72px bar. It
+        // carries one left action, not two: Cancel on the first step, Back on
+        // every step after it. The required-fields counter that used to sit in
+        // here has moved up beside the Stepper, where progress belongs —
+        // the footer is for navigation.
+        <StepperNavFooter
+          variant={stepIndex === 0 ? "cancel-next" : "back-next"}
+          onCancel={onCancel}
+          onBack={goBack}
+          secondaryLabel="Save draft"
+          onSecondary={handleSaveDraft}
+          nextLabel={step === "review" ? "Finish Playbook" : "Continue"}
+          onNext={step === "review" ? handleFinish : goContinue}
+        />
       }
       header={isScrolled => (
         <Header
@@ -525,40 +530,25 @@ export default function BuilderWizard({ onCancel, onFinish }: BuilderWizardProps
             <div className="flex items-center gap-[10px]">
               <Tag variant="alert" size="sm">Draft</Tag>
               <span style={{ fontSize: 13, fontWeight: 600, color: TXT }}>{draft.basics.name.trim() || "Untitled Playbook"}</span>
-              <Button variant="secondary" size="sm" icon={<Save size={13} />} onClick={handleSaveDraft}>Save Draft</Button>
             </div>
           }
         />
       )}
     >
-      {/* ── Step nav — 8 pills, freely clickable in any order ──
-          DS-GAP: SwitchTab (the DS's own pill-tab control) is documented for
-          2–7 items; this wizard has 8 steps, and one pill also needs a
-          per-item sub-badge ("Defaults applied") SwitchTab has no slot for.
-          Neither constraint fits the real component, so this stays a
-          hand-built pill row rather than forcing SwitchTab past its range. */}
-      <div className="flex items-center gap-[6px] flex-wrap" style={{ marginBottom: 24 }}>
-        {WIZARD_STEPS.map((s, i) => {
-          const active = s.id === step
-          return (
-            <button
-              key={s.id}
-              onClick={() => goTo(s.id)}
-              className="flex items-center gap-[6px]"
-              style={{
-                padding: "6px 12px", borderRadius: 20, cursor: "pointer",
-                border: `1px solid ${active ? "var(--primary)" : "var(--field-border)"}`,
-                background: active ? "color-mix(in srgb, var(--primary) 12%, transparent)" : "transparent",
-              }}
-            >
-              <span style={{ fontSize: 12, fontWeight: 700, color: active ? "var(--primary)" : SUB }}>{i + 1}</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: active ? "var(--primary)" : TXT }}>{s.label}</span>
-              {s.id === "hard-gates" && hardGatesDefaultsApplied && (
-                <Tag variant="success" size="sm">Defaults applied</Tag>
-              )}
-            </button>
-          )
-        })}
+      {/* ── Step nav — the DS Stepper, freely clickable in any order ──
+          This was a row of hand-built pills: a <button> setting its own
+          padding, radius, border and background, which is a Chip's job at
+          best and a Stepper's job here. The old comment justified it on the
+          grounds that SwitchTab caps at 7 items and has no per-item badge —
+          both true, and both about the wrong component. A wizard's steps are
+          a Stepper, which has no item cap and carries state per step. */}
+      <div className="flex items-center justify-between gap-[16px] flex-wrap" style={{ marginBottom: 24 }}>
+        <div style={{ overflowX: "auto" }}>
+          <Stepper steps={steps} onStepClick={i => goTo(WIZARD_STEPS[i].id)} />
+        </div>
+        <span style={{ fontSize: 12, color: SUB, whiteSpace: "nowrap" }}>
+          {required.complete} / {required.total} required fields complete
+        </span>
       </div>
 
       {step === "review" ? (
