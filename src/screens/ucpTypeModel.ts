@@ -188,8 +188,11 @@ export function specForContact(c: UcpContact): UcpProfileSpec {
             tooltip: `Role · ${role ?? "not recorded"}. Decides which policies and training the Governance study checks for.` },
           { label: "Department", value: department ?? "—", icon: "Building2",         variant: "neutral",
             tooltip: `Department · ${department ?? "not recorded"}. From the HR system of record.` },
-          { label: "Location",   value: location   ?? "—", icon: "MapPin",            variant: "neutral",
-            tooltip: `Location · ${location ?? "not recorded"}. Where this person works, which decides the employment rules that apply.` },
+          /* The real field wins over the one parsed out of `subtitle`: an edit
+             writes `c.location`, and a stale guess from free text would quietly
+             outrank what somebody just typed. */
+          { label: "Location",   value: c.location ?? location ?? "—", icon: "MapPin",            variant: "neutral",
+            tooltip: `Location · ${c.location ?? location ?? "not recorded"}. Where this person works, which decides the employment rules that apply.` },
           { label: "Manager",    value: c.owner,           icon: "UserRound",         variant: "informative",
             tooltip: `Manager · ${c.owner}. Reporting line inside the tenant; approvals route here.` },
         ],
@@ -275,6 +278,13 @@ export function specForContact(c: UcpContact): UcpProfileSpec {
   ]
   if (dept) rows.push({ label: "Department", value: dept, icon: "Users", variant: "neutral",
     tooltip: `Department · ${dept}. Their side of the account, not ours.` })
+  /* Location appears only once the record HAS one — 2026-09-14, when Edit made
+     `UcpContact.location` a real field. A row reading "—" on every fixture
+     would be four pixels of nothing on every customer in the prototype; a row
+     that appears when somebody fills it in is the edit becoming visible, which
+     is the point of an edit flow landing back on the record. */
+  if (c.location) rows.push({ label: "Location", value: c.location, icon: "MapPin", variant: "neutral",
+    tooltip: `Location · ${c.location}. Where this contact sits, which decides the working hours a call has to land in.` })
   rows.push({ label: "Account owner", value: c.owner, icon: "UserRound", variant: "informative",
     tooltip: `Account owner · ${c.owner}. Holds this relationship on our side; escalations go here first.` })
 
@@ -321,11 +331,27 @@ export function specForContact(c: UcpContact): UcpProfileSpec {
  * Knowledge is what it can prove — and Drive, Sandbox and Truth are three
  * shelves of the same cupboard.
  */
+/**
+ * INTELLIGENCE IS OFF FOR THIS VERSION — Michael, 2026-09-14.
+ *
+ * A flag, not a deletion. The tab, `IntelligenceTab`, the signal catalogue,
+ * the suggestion model and the profile layer are all still here and all still
+ * compile; the strip simply does not offer the tab. Deleting it would throw
+ * away a build that took four passes to get right, and turning it back on
+ * should be this one line rather than an archaeology exercise.
+ *
+ * Two places read it, and both have to: the strip, so the tab is not offered,
+ * and the Overview's Open Signals widget, whose rows link INTO Intelligence.
+ * A live link to a hidden tab is worse than no link — it is a dead click on
+ * the first screen of the record.
+ */
+export const INTELLIGENCE_ENABLED = false
+
 export function tabsForContact(c: UcpContact): { id: string; label: string }[] {
   return [
     { id: "overview",     label: "Overview"     },
     { id: "activity",     label: "Activity"     },
-    { id: "intelligence", label: "Intelligence" },
+    ...(INTELLIGENCE_ENABLED ? [{ id: "intelligence", label: "Intelligence" }] : []),
     { id: "knowledge",    label: "Knowledge"    },
     // Industry modules last. A type's own tab is the domain layer on top of
     // the spine — a Company brings People — and it sits after the four
