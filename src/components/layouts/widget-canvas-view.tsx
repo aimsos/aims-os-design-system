@@ -3,7 +3,7 @@ import type { ReactNode } from "react"
 import { GripVertical } from "lucide-react"
 import { WidgetFather } from "@/components/ui/widget-father"
 import type { WidgetWidthClass } from "@/components/ui/widget-father"
-import { CardContainer } from "@/components/ui/card-container"
+import { CardContainer, type CardVariant } from "@/components/ui/card-container"
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 //
@@ -49,6 +49,13 @@ export interface CanvasSlot {
    * Default: true
    */
   autoExpand?: boolean
+  /**
+   * Card color, same variants CardContainer already publishes. Default:
+   * "default" (unchanged for every existing caller). A static report-style
+   * canvas (a playbook's read-only Overview, say) can tone each widget to
+   * its semantic role instead of every card reading as the same grey.
+   */
+  tone?: CardVariant
   /** Content rendered inside WidgetFather */
   content: ReactNode
 }
@@ -1269,7 +1276,7 @@ export function WidgetCanvasView({ initialSlots, className }: WidgetCanvasViewPr
                           }} />
                         )}
                         <WidgetSizeContext.Provider value={{ widthClass: "narrow", isNarrow: true, isWide: false, isFull: false, availableHeight: guToPixels(slotRowSpan), contentHeight: Math.max(0, guToPixels(slotRowSpan) - WIDGET_CHROME_HEIGHT) }}>
-                          <CardContainer size="lg" className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                          <CardContainer size="lg" variant={slotDef.tone ?? "default"} className="flex flex-col flex-1 min-h-0 overflow-hidden">
                             <WidgetFather
                               noCard
                               className="flex-1 min-h-0"
@@ -1452,7 +1459,7 @@ export function WidgetCanvasView({ initialSlots, className }: WidgetCanvasViewPr
                   availableHeight: guToPixels(effectiveRowSpan),
                   contentHeight: Math.max(0, guToPixels(effectiveRowSpan) - WIDGET_CHROME_HEIGHT),
                 }}>
-                  <CardContainer size="lg" className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                  <CardContainer size="lg" variant={slotDef.tone ?? "default"} className="flex flex-col flex-1 min-h-0 overflow-hidden">
                     <WidgetFather
                       noCard
                       className="flex-1 min-h-0"

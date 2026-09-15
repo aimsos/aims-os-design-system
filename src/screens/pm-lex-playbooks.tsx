@@ -1,27 +1,27 @@
-import { useEffect, useRef, useState } from "react"
-import { Popover } from "@base-ui/react/popover"
-import { Plus, Archive as ArchiveIcon, Copy as CopyIcon, BookOpen } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Plus, Archive as ArchiveIcon, Copy as CopyIcon, BookOpen, Radio, User, Zap, UserCheck, PencilLine, Clock } from "lucide-react"
 import { ScreenLayout } from "@/components/layouts/screen-layout"
 import type { SidebarItem } from "@/components/ui/sidebar"
 import { Header } from "@/components/ui/header"
 import { Filters } from "@/components/ui/filters"
 import { FiltersSlideout } from "@/components/ui/filters-slideout"
-import { EntityList, type EntityListItemData } from "@/components/ui/entity-list"
 import { CardContainer } from "@/components/ui/card-container"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Pagination } from "@/components/ui/pagination"
 import { Menu, MenuItem } from "@/components/ui/menu-item"
 import { ModalDialog } from "@/components/ui/modal-dialog"
-import { Button } from "@/components/ui/button"
 import { HighlightIcon } from "@/components/ui/highlight-icon"
 import { Tag } from "@/components/ui/tag"
 import { anchorFromEvent, useDropdownPosition, type DropdownAnchor } from "@/lib/dropdown-anchor"
+import { HeaderMenuPrimaryAction } from "@/components/experimental/header-menu-primary-action"
+import { PlaybookListCard, type PlaybookListCardMetaItem, type PlaybookListCardMetaColor } from "@/components/experimental/playbook-list-card"
 
 // Data module built in the previous prompt — imported, not recreated.
 import { PLAYBOOKS, type Playbook, type PlaybookStatus, type TrustMode } from "./pm-lex-playbooks/playbooks-data"
 import PlaybookDetail, { type DetailTab, type OverviewSubtab } from "./pm-lex-playbooks/PlaybookDetail"
 import CreatePlaybookPage from "./pm-lex-playbooks/CreatePlaybookPage"
 import BuilderWizard from "./pm-lex-playbooks/BuilderWizard"
+import { PreviewSlideOut } from "./pm-lex-playbooks/PreviewSlideOut"
 
 // ── Step 1 — "+ Create playbook" type chooser (dropdown under the button) ──
 
@@ -82,10 +82,19 @@ const STATUS_TAG_VARIANT: Record<PlaybookStatus, "success" | "alert"> = {
   Draft:     "alert",
 }
 
-const TRUST_ICON: Record<TrustMode, string> = {
-  "Auto-Execute":       "Zap",
-  "Approval Required":  "UserCheck",
-  "Draft":              "PencilLine",
+const TRUST_ICON: Record<TrustMode, typeof Zap> = {
+  "Auto-Execute":       Zap,
+  "Approval Required":  UserCheck,
+  "Draft":              PencilLine,
+}
+
+// Same "colored meta icon" gap noted in playbook-list-card.tsx — trust mode
+// maps to a semantic tint the same way STATUS_TAG_VARIANT already does for
+// the state Tag, just applied to an inline icon instead of a chip.
+const TRUST_META_COLOR: Record<TrustMode, PlaybookListCardMetaColor> = {
+  "Auto-Execute":       "success",
+  "Approval Required":  "purple",
+  "Draft":              "neutral",
 }
 
 function trustTooltip(pb: Playbook): string {
@@ -93,26 +102,16 @@ function trustTooltip(pb: Playbook): string {
   return `${pb.trustControls.confidenceThreshold}% confidence threshold → escalates to ${pb.trustControls.escalatesTo}`
 }
 
-function toEntityItem(pb: Playbook, onOpenMenu: (id: string) => void, onOpen: (id: string) => void): EntityListItemData {
-  return {
-    id: pb.id,
-    title: pb.name,
-    avatarName: pb.owner.name,
-    description: pb.shortDescription,
-    primaryMeta: [
-      { label: pb.id },
-      { iconName: "Radio",  label: pb.moment.primaryEvent, tooltip: pb.moment.businessMeaning ?? pb.moment.primaryEvent },
-      { iconName: "User",   label: pb.owner.name },
-      { iconName: TRUST_ICON[pb.trustMode], label: pb.trustMode, tooltip: trustTooltip(pb) },
-      { label: pb.version },
-      { label: pb.updatedRelative },
-    ],
-    state: { label: pb.status, variant: STATUS_TAG_VARIANT[pb.status] },
-    tags: [{ label: pb.categoryTag }],
-    showMenu: true,
-    onMenuClick: () => onOpenMenu(pb.id),
-    onClick: () => onOpen(pb.id),
-  }
+function toCardMeta(pb: Playbook): PlaybookListCardMetaItem[] {
+  const TrustIcon = TRUST_ICON[pb.trustMode]
+  return [
+    { label: pb.id },
+    { icon: <Radio size={13} />,     label: pb.moment.primaryEvent, tooltip: pb.moment.businessMeaning ?? pb.moment.primaryEvent, color: "informative" },
+    { icon: <User size={13} />,      label: pb.owner.name },
+    { icon: <TrustIcon size={13} />, label: pb.trustMode, tooltip: trustTooltip(pb), color: TRUST_META_COLOR[pb.trustMode] },
+    { label: pb.version },
+    { icon: <Clock size={13} />,     label: pb.updatedRelative },
+  ]
 }
 
 export default function PMLexPlaybooksScreen() {
@@ -137,6 +136,7 @@ export default function PMLexPlaybooksScreen() {
   const dropdown = useDropdownPosition(menuAnchor)
 
   const [archiveTarget, setArchiveTarget] = useState<Playbook | null>(null)
+  const [previewPlaybookId, setPreviewPlaybookId] = useState<string | null>(null)
 
   // ── Detail route — synced to ?pbId=/&pbTab=/&pbSubtab= so a reload keeps
   // the user on the same playbook, tab, and sub-tab. Mirrors usePageTab's
@@ -168,7 +168,6 @@ export default function PMLexPlaybooksScreen() {
 
   // ── Step 1 — "+ Create playbook" type-chooser dropdown ──
   const [createTypeMenuOpen, setCreateTypeMenuOpen] = useState(false)
-  const createTriggerRef = useRef<HTMLDivElement>(null)
 
   // ── Step 2 — "Create Playbook" page, synced to ?pbCreate= like the detail route ──
   const [showCreatePage, setShowCreatePage] = useState<boolean>(
@@ -212,11 +211,6 @@ export default function PMLexPlaybooksScreen() {
     setDetailId(id)
     setDetailTab("overview")
     setDetailSubtab("what-it-does")
-  }
-
-  // Opens the Step 1 type-chooser dropdown (header "+ Create playbook").
-  function handleCreatePlaybook() {
-    setCreateTypeMenuOpen(o => !o)
   }
 
   // The empty-state CTA has no dropdown trigger of its own to anchor a
@@ -281,6 +275,12 @@ export default function PMLexPlaybooksScreen() {
 
   const menuPlaybook = playbooks.find(p => p.id === menuPlaybookId) ?? null
   const activeDetailPlaybook = detailId ? playbooks.find(p => p.id === detailId) ?? null : null
+  const previewPlaybook = previewPlaybookId ? playbooks.find(p => p.id === previewPlaybookId) ?? null : null
+
+  function handleGoToPlaybookFromPreview(id: string) {
+    setPreviewPlaybookId(null)
+    handleOpenDetail(id)
+  }
 
   const isGloballyEmpty = playbooks.length === 0
   const isFilteredEmpty = !isGloballyEmpty && filtered.length === 0
@@ -329,50 +329,39 @@ export default function PMLexPlaybooksScreen() {
           size={isScrolled ? "compress" : "size-l"}
           title="Playbooks"
           description="Design and govern customer execution strategies across adaptive playbooks and deterministic journeys"
-          // Composed in `aux` rather than `primaryAction`: this button opens
-          // a Step 1 type-chooser dropdown, not a plain click action, and
-          // `primaryAction` only supports the latter (Header owns its
-          // rendering, so there's no DOM node to anchor a popover to). The
-          // trigger itself stays variant="primary", not "main" — Guardrails
-          // reserve "main" for Header.primaryAction specifically.
+          icon={BookOpen}
+          iconVariant="purple"
+          iconSize="lg"
+          // Still composed in `aux`, not `primaryAction`: this button opens a
+          // Step 1 type-chooser popover, which HeaderMenuPrimaryAction (the
+          // experimental gap-filler, see header-menu-primary-action.tsx)
+          // provides so the trigger can wear the DS gradient "main" look
+          // while still anchoring its own menu — primaryAction's real API
+          // still can't do that.
           aux={
-            <div ref={createTriggerRef}>
-              <Button variant="primary" icon={<Plus size={15} />} onClick={handleCreatePlaybook}>
-                Create playbook
-              </Button>
-              <Popover.Root open={createTypeMenuOpen} onOpenChange={setCreateTypeMenuOpen}>
-                <Popover.Portal>
-                  <Popover.Positioner anchor={createTriggerRef} side="bottom" align="end" sideOffset={4} style={{ zIndex: 10030 }}>
-                    <Popover.Popup
-                      className="flex flex-col rounded-[8px] overflow-hidden"
-                      style={{
-                        width: 320, padding: 6,
-                        background: "var(--surface-floating-default)",
-                        border: "0.5px solid var(--color-border-neutral-subtle)",
-                        boxShadow: "var(--shadow-elevation-5)",
-                      }}
-                    >
-                      <CreateTypeOption
-                        icon="Users"
-                        title="Customer Playbook"
-                        subtitle="Adaptive · NBA-driven"
-                        description="Adaptive NBA strategies for customer lifecycle engagement and 1:1 plan execution."
-                        onClick={() => { setCreateTypeMenuOpen(false); setShowCreatePage(true) }}
-                      />
-                      {/* Internal-process wizard path is post-pilot scope — visible but
-                          inert, not hidden, per the handoff guide. */}
-                      <CreateTypeOption
-                        icon="Building2"
-                        title="Internal Playbook"
-                        subtitle="Team · operational"
-                        description="Standard operating procedures for internal teams and cross-functional workflows."
-                        comingSoon
-                      />
-                    </Popover.Popup>
-                  </Popover.Positioner>
-                </Popover.Portal>
-              </Popover.Root>
-            </div>
+            <HeaderMenuPrimaryAction
+              label="Create playbook"
+              icon={Plus}
+              open={createTypeMenuOpen}
+              onOpenChange={setCreateTypeMenuOpen}
+            >
+              <CreateTypeOption
+                icon="Users"
+                title="Customer Playbook"
+                subtitle="Adaptive · NBA-driven"
+                description="Adaptive NBA strategies for customer lifecycle engagement and 1:1 plan execution."
+                onClick={() => { setCreateTypeMenuOpen(false); setShowCreatePage(true) }}
+              />
+              {/* Internal-process wizard path is post-pilot scope — visible but
+                  inert, not hidden, per the handoff guide. */}
+              <CreateTypeOption
+                icon="Building2"
+                title="Internal Playbook"
+                subtitle="Team · operational"
+                description="Standard operating procedures for internal teams and cross-functional workflows."
+                comingSoon
+              />
+            </HeaderMenuPrimaryAction>
           }
         />
       )}
@@ -440,13 +429,18 @@ export default function PMLexPlaybooksScreen() {
             onClickCapture={e => setMenuAnchor(anchorFromEvent(e))}
           >
             {paged.map(pb => (
-              <CardContainer
+              <PlaybookListCard
                 key={pb.id}
-                size="sm"
-                className="!p-0 overflow-hidden"
-              >
-                <EntityList items={[toEntityItem(pb, setMenuPlaybookId, handleOpenDetail)]} />
-              </CardContainer>
+                title={pb.name}
+                description={pb.shortDescription}
+                ownerName={pb.owner.name}
+                meta={toCardMeta(pb)}
+                categoryTag={pb.categoryTag}
+                state={{ label: pb.status, variant: STATUS_TAG_VARIANT[pb.status] }}
+                onClick={() => handleOpenDetail(pb.id)}
+                onMenuClick={() => setMenuPlaybookId(pb.id)}
+                onPreviewClick={() => setPreviewPlaybookId(pb.id)}
+              />
             ))}
           </div>
 
@@ -486,6 +480,12 @@ export default function PMLexPlaybooksScreen() {
         description="Archiving pauses this playbook — no new plans will be triggered until it's restored. Plans already in progress will continue to completion."
         ctaPrimary={{ label: "Archive playbook", destructive: false, onClick: confirmArchive }}
         ctaSecondary={{ label: "Cancel" }}
+      />
+
+      <PreviewSlideOut
+        playbook={previewPlaybook}
+        onClose={() => setPreviewPlaybookId(null)}
+        onGoToPlaybook={handleGoToPlaybookFromPreview}
       />
     </ScreenLayout>
   )
