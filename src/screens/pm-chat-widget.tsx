@@ -12,6 +12,7 @@ import { CardContainer }       from "@/components/ui/card-container"
 import { ModalDialog }         from "@/components/ui/modal-dialog"
 import { EmptyState }          from "@/components/ui/empty-state"
 import type { SidebarItem }    from "@/components/ui/sidebar"
+import { HighlightIcon } from "@/components/ui/highlight-icon"
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
@@ -425,9 +426,7 @@ export default function PMChatWidgetScreen() {
                       <div style={{ padding: "24px 16px", textAlign: "center", fontSize: 12, color: "var(--color-text-disabled)" }}>No notifications yet</div>
                     ) : notifs.map(n => (
                       <div key={n.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 14px", borderBottom: "1px solid var(--color-border-neutral-default)", background: "var(--card-primary-bg)" }}>
-                        <span style={{ width: 28, height: 28, borderRadius: 8, background: "var(--card-primary-bg)", border: "1px solid var(--color-border-neutral-default)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                          <Icons.Send size={12} color="var(--primary)" />
-                        </span>
+                        <HighlightIcon size="md" variant="informative" iconName="Send" />
                         <span style={{ flex: 1 }}>
                           <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--color-text-title)", lineHeight: 1.35 }}>{n.title}</span>
                           <span style={{ display: "block", fontSize: 11, color: "var(--color-text-subtitle)", marginTop: 2 }}>{n.sub}</span>
@@ -455,9 +454,7 @@ export default function PMChatWidgetScreen() {
                 onClick={() => openWidget(w)}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <span style={{ width: 28, height: 28, borderRadius: 7, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: w.status === "draft" ? "var(--card-yellow-bg)" : "var(--card-primary-bg)", color: w.status === "draft" ? "var(--field-text-alert)" : "var(--primary)" }}>
-                    <Icons.MessageCircle size={14} />
-                  </span>
+                  <HighlightIcon size="md" variant={w.status === "draft" ? "yellow" : "informative"} iconName="MessageCircle" />
                   <span style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-title)", flex: 1 }}>{w.name}</span>
                   <StatusDot status={w.status} />
                   <span style={{ fontSize: 11, color: "var(--color-text-disabled)", whiteSpace: "nowrap" }}>{w.lastUpdated}</span>
@@ -556,9 +553,7 @@ export default function PMChatWidgetScreen() {
                         <div>
                           {/* Network identity */}
                           <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--color-border-neutral-default)", display: "flex", gap: 10, alignItems: "flex-start" }}>
-                            <span style={{ width: 34, height: 34, borderRadius: 9, background: "var(--card-purple-bg)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                              <Icons.Network size={16} color="var(--badge-purple)" />
-                            </span>
+                            <HighlightIcon size="md" variant="purple" iconName="Network" />
                             <div style={{ minWidth: 0 }}>
                               <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-title)", marginBottom: 3 }}>{currentNet.name}</div>
                               <div style={{ fontSize: 11, color: "var(--color-text-subtitle)", lineHeight: 1.4 }}>{currentNet.description}</div>
@@ -783,9 +778,7 @@ export default function PMChatWidgetScreen() {
                             else setSelectedNet(n.id)
                           }}
                             style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderBottom: "1px solid var(--color-border-neutral-default)", cursor: "pointer", background: sel ? "var(--card-primary-bg)" : "transparent", transition: "background 0.15s" }}>
-                            <span style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: agentType === "network" ? "var(--card-purple-bg)" : "var(--card-primary-bg)" }}>
-                              {agentType === "network" ? <Icons.Network size={14} color="var(--badge-purple)" /> : <Icons.Bot size={14} color="var(--primary)" />}
-                            </span>
+                            <HighlightIcon size="md" variant={agentType === "network" ? "purple" : "informative"} iconName={agentType === "network" ? "Network" : "Bot"} />
                             <span style={{ flex: 1, minWidth: 0 }}>
                               <span style={{ fontSize: 13, fontWeight: 500, color: "var(--color-text-title)", marginBottom: 2, display: "flex", alignItems: "center", gap: 7 }}>
                                 {n.name}
@@ -815,9 +808,7 @@ export default function PMChatWidgetScreen() {
                   {currentNet && (
                     <CardContainer variant="primary" size="sm">
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
-                        <span style={{ width: 32, height: 32, borderRadius: 8, background: "var(--card-purple-bg)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                          <Icons.Network size={14} color="var(--badge-purple)" />
-                        </span>
+                        <HighlightIcon size="md" variant="purple" iconName="Network" />
                         <span>
                           <span style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13, fontWeight: 600, color: "var(--color-text-title)", flexWrap: "wrap" }}>
                             {currentNet.name}
@@ -1239,9 +1230,7 @@ export default function PMChatWidgetScreen() {
           <div style={{ background: "var(--canvas)", border: "1px solid var(--color-border-neutral-default)", borderRadius: 20, width: 680, maxWidth: "calc(100vw - 32px)", maxHeight: "84vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 32px 96px rgba(0,0,0,0.65)" }}> {/* audit-ignore: rgba shadow — no token */}
             {/* Modal header */}
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "18px 20px 15px", borderBottom: "1px solid var(--color-border-neutral-default)" }}>
-              <span style={{ width: 34, height: 34, borderRadius: 10, background: "var(--card-primary-bg)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Icons.Network size={16} color="var(--primary)" />
-              </span>
+              <HighlightIcon size="md" variant="informative" iconName="Network" />
               <span style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-title)", flex: 1, letterSpacing: "-0.01em" }}>Networks &amp; Agents</span>
               <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-disabled)", background: "var(--color-surface-neutral-default)", border: "1px solid var(--color-border-neutral-default)", borderRadius: 6, padding: "3px 9px" }}>{filteredNetworks.length} available</span>
               <button onClick={() => setBrowseOpen(false)}
@@ -1292,9 +1281,7 @@ export default function PMChatWidgetScreen() {
                     return (
                       <div key={n.id}
                         style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 11px", borderRadius: 10, border: `1px solid ${isCurrent ? "rgba(9,226,171,0.18)" : isBSel ? "rgba(43,127,255,0.28)" : "transparent"}`, background: isCurrent ? "rgba(9,226,171,0.05)" : isBSel ? "var(--card-primary-bg)" : "transparent", cursor: "default", transition: "background 0.14s, border-color 0.14s" }}> {/* audit-ignore: rgba state tints — no ds tokens */}
-                        <span style={{ width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, background: n.type === "network" ? "var(--card-purple-bg)" : "var(--card-primary-bg)" }}>
-                          {n.type === "network" ? <Icons.Network size={16} color="var(--badge-purple)" /> : <Icons.Bot size={16} color="var(--primary)" />}
-                        </span>
+                        <HighlightIcon size="lg" variant={n.type === "network" ? "purple" : "informative"} iconName={n.type === "network" ? "Network" : "Bot"} />
                         <span style={{ flex: 1, minWidth: 0 }}>
                           <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--color-text-title)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{n.name}</span>
                           <span style={{ display: "block", fontSize: 11, color: "var(--color-text-subtitle)", lineHeight: 1.45, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{n.description}</span>

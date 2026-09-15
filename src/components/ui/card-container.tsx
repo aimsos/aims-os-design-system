@@ -39,7 +39,7 @@ const cardVariants = cva(
           "hover:border-[var(--card-default-hover-bd)] hover:[box-shadow:var(--card-default-hover-shadow)]",
         ],
         whiteOpacity: [
-          "bg-[var(--card-default-bg)] border-[var(--card-default-border)]",
+          "bg-[var(--card-whiteopacity-bg)] border-[var(--card-default-border)]",
           "hover:border-[var(--card-default-hover-bd)] hover:[box-shadow:var(--card-whiteopacity-hover-shadow)]",
         ],
         primary: [

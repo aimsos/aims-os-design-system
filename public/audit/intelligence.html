@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UCP Intelligence — audit brief</title>
+<style>
+  :root { color-scheme: light dark; --fg:#12151c; --muted:#5c6472; --line:#e2e5ea; --bg:#fff; --code:#f5f6f8; --warn:#8a5300; }
+  @media (prefers-color-scheme: dark) {
+    :root { --fg:#e7e9ee; --muted:#9aa3b2; --line:#262b36; --bg:#0e1116; --code:#171b22; --warn:#e0a458; }
+  }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif; }
+  main { max-width:820px; margin:0 auto; padding:48px 24px 96px; }
+  h1 { font-size:26px; line-height:1.25; margin:0 0 8px; }
+  h2 { font-size:19px; margin:40px 0 10px; padding-top:20px; border-top:1px solid var(--line); }
+  h3 { font-size:15px; margin:24px 0 6px; }
+  p, li { color:var(--fg); }
+  .lede { color:var(--muted); margin:0 0 8px; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:14px; }
+  th, td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  td.n { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  pre { background:var(--code); padding:12px 14px; border-radius:8px; overflow-x:auto; font-size:13px; line-height:1.6; }
+  code { background:var(--code); padding:1px 5px; border-radius:4px; font-size:0.9em; }
+  .note { border-left:3px solid var(--warn); padding:2px 0 2px 14px; margin:16px 0; color:var(--muted); }
+  ul { padding-left:20px; }
+  .meta { color:var(--muted); font-size:13px; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>UCP · Intelligence — audit brief</h1>
+<p class="lede">A static, JavaScript-free copy of what the Intelligence tab shows and how much room it takes,
+written for review. The live prototype is a client-rendered SPA, so fetching its URL returns an empty
+<code>&lt;div id="root"&gt;</code> — this page exists so the section can be read without running it.</p>
+<p class="meta">Record: Sandra Torres · VP of Operations · Meridian Corp. Measured 2026-09-11 in a 881&nbsp;px content viewport.</p>
+
+<h2>The question being asked</h2>
+<p><strong>Is this section too dense, and if so what should give?</strong> The measurements below say the default
+state does not fit one screen. What is wanted is a judgement on whether the content earns its height, and
+which block should yield first.</p>
+
+<h2>What the section is for</h2>
+<p>A rep opens a contact and decides what to do about that person now. Intelligence is a working surface,
+not a reading surface: work is resolved here, not just displayed. Four blocks, fixed order, nothing above
+the profile.</p>
+
+<h2>Default state — what is actually on screen</h2>
+<p>One thing is open at a time. Every collapsed block states its own weight — an exact count plus its most
+significant item — so it can be skipped on purpose rather than by accident.</p>
+
+<h3>1 · Profile — always visible, three lines, 123 px</h3>
+<pre>Economic Buyer  [In review]  ·  Cautious Evaluator  [Inferred]
+Asks for written proof · Replies within 2 days · Escalates to finance ·
+  Quiet on calls · Prefers email over calls
+Email · mornings · replies in ~2 days · last contact 30m ago   [Propose as fact]</pre>
+<p>Green traits are attested through KCON; grey are inferred from behaviour. Each trait links to its
+evidence. Expandable — <em>What lands</em>, <em>What doesn't</em>, <em>Highlights</em> — but never collapsible.</p>
+
+<h3>2 · Now — 88 px</h3>
+<pre>Answer her today — it is the only open question before a $480K renewal
+that closes in 19 days.
+Generated Today, 08:12 · 19 of 45 words        [👍] [👎] [↻]</pre>
+<p>One sentence. It used to open by saying who she is, which is now the Profile block's job.</p>
+
+<h3>3 · Signals — collapsed to one line, 45 px</h3>
+<pre>[Awaiting us]  Signals · 5 active — most severe: awaiting us for 6 days</pre>
+<p>The severity tag sits in the collapsed line, so a critical signal is readable without expanding.</p>
+
+<h3>4 · Suggestions — 586 px, the working surface</h3>
+<pre>SUGGESTIONS · 3                          Sorted by impact × urgency
+
+▾ [Held]  Send the migration timeline · asked twice · renewal in 19 days
+     Sandra asked for a written migration timeline on Aug 18 and again on
+     the Sep 2 call. Nothing has gone out. Their own security review cannot
+     start without a date.
+
+     ⚠ Your reply is ready. One date needs confirming before it can go out.
+       The draft references a migration delivery date that is not attested
+       in the Truth Plane. The Council holds anything that commits to an
+       unattested fact.
+
+     DRAFT — THE FULL REPLY   [Show all 3 lines]            [In review]
+       Hi Sandra, Thanks for your patience on this. The migration would
+       complete by 14 November, with the cutover window in the first week…
+     Grounded in: Company · Meridian Corp / Decision role · Evaluator
+
+     [Supply the date]  [Reply without committing]  Edit  Dismiss
+
+▸ [New]    Put a date on the two open escalations · raised at two
+           consecutive reviews · no owner
+▸ [Ready]  Re-verify the direct line · read off an email signature in June
+
+1 accepted ↗</pre>
+<p>Exactly one row expanded, and a <code>held</code> row among the first three wins it — it is the only row
+blocked on the reader. Collapsed rows are one line with no draft preview.</p>
+
+<h3>5 · Agent reads — collapsed to one line, 45 px</h3>
+<pre>Agent reads · 2 — 1 unreviewed</pre>
+<p>Situations only. Two reads that described stable traits were routed into Profile instead.</p>
+
+<h2>The measurements</h2>
+<table>
+  <tr><th>Block</th><th class="n">Height</th><th>State</th></tr>
+  <tr><td>Profile</td><td class="n">123 px</td><td>always visible, 3 lines</td></tr>
+  <tr><td>Now</td><td class="n">88 px</td><td>always visible, 1 sentence</td></tr>
+  <tr><td>Signals</td><td class="n">45 px</td><td>collapsed</td></tr>
+  <tr><td>Suggestions</td><td class="n">586 px</td><td>3 rows, 1 expanded</td></tr>
+  <tr><td>Agent reads</td><td class="n">45 px</td><td>collapsed</td></tr>
+  <tr><td>gaps (4 × 16)</td><td class="n">64 px</td><td></td></tr>
+  <tr><th>Section total</th><th class="n">951 px</th><th></th></tr>
+</table>
+<table>
+  <tr><td>Record header + tab bar</td><td class="n">151 px</td></tr>
+  <tr><td>Page padding</td><td class="n">72 px</td></tr>
+  <tr><th>Page total</th><th class="n">1213 px</th></tr>
+  <tr><td>Viewport measured</td><td class="n">881 px</td></tr>
+  <tr><th>Overflow</th><th class="n">332 px</th></tr>
+</table>
+
+<div class="note">
+  <strong>The requirement that is not met.</strong> The spec says the default state must fit one screen
+  without scrolling, and it does not — it overflows by 332 px at 881 px, and would still overflow a
+  900 px laptop. Inside the expanded row every reduction the spec sanctions is already applied: the draft
+  is clamped to three visual lines, its expand control shares the label row, and the reason, the held
+  card and the two action paths are all specified as never collapsing.
+</div>
+
+<h3>Levers, and what each costs</h3>
+<table>
+  <tr><th>Change</th><th class="n">Saves</th><th>Cost</th></tr>
+  <tr><td>2 queue rows instead of 3</td><td class="n">~56 px</td><td>None against the spec — three is a cap, not a requirement</td></tr>
+  <tr><td>Start the queue row collapsed</td><td class="n">~350 px</td><td>Breaks "exactly one row expanded"</td></tr>
+  <tr><td>Collapse Profile by default</td><td class="n">~123 px</td><td>Breaks "always visible"; a profile you must open is one nobody reads</td></tr>
+  <tr><td>Drop the reason paragraph from the expanded row</td><td class="n">~38 px</td><td>Specified content for the expanded state</td></tr>
+</table>
+<p>Only the first is free. The rest trade a stated rule for height, which is a product call rather than a
+layout one.</p>
+
+<h2>Rules the section is built to</h2>
+<ul>
+  <li><strong>No aggregate risk score on a contact.</strong> A number computed on a person is a judgement
+      wearing a decimal point. Named signals replaced it, each with a duration and an evidence link.</li>
+  <li><strong>No confidence percentage anywhere.</strong> State labels instead: Inferred / In review / Verified.</li>
+  <li><strong>A suggestion is not a task.</strong> Accepting is what creates a task; accepted items show as a
+      link out so nobody accepts the same thing twice.</li>
+  <li><strong>Structural vs interpretive.</strong> Only observable, checkable claims carry Confirm. A read of
+      tone or intent is never persisted as an attested fact about a person.</li>
+  <li><strong>Inferred lives here, attested lives in Overview.</strong> Intelligence shows what the system
+      believes; Overview shows what the organisation stands behind.</li>
+  <li><strong>Nothing renders without evidence.</strong> Enforced in the data layer, not at the call site.</li>
+  <li><strong>The copy test.</strong> If Sandra read her own profile she should recognise herself, not feel
+      diagnosed. Third person, present tense, no personality framework.</li>
+</ul>
+
+<h2>Where to read the code</h2>
+<ul>
+  <li>Full diff, plain text, no auth:
+      <code>https://github.com/cachilupis/aims-os-design-system/pull/140.diff</code></li>
+  <li>Pull request: <code>https://github.com/cachilupis/aims-os-design-system/pull/140</code></li>
+  <li>Section: <code>src/screens/pm-thomas-ucp-profile.tsx</code> → <code>IntelligenceTab</code>,
+      <code>ProfileBlock</code>, <code>SuggestionRow</code>, <code>DisclosureBlock</code></li>
+  <li>Data and catalogs: <code>src/screens/ucpShared.ts</code></li>
+</ul>
+
+<p class="meta">Snapshot, not a live view. Regenerate it if the section changes.</p>
+
+</main>
+</body>
+</html>

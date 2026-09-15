@@ -3,7 +3,7 @@
 > Single source of truth for how any create action picks its surface in AIMS OS.
 > Everything else — the `CLAUDE.md` table, the `patterns-create` doc page, the playground screens — is derived from this file.
 >
-> Status: **draft v0.13 — pending validation**
+> Status: **draft v0.14 — pending validation**
 >
 > v0.2 — volume threshold removed; step 1 rewritten as a declared property rather than an enumerated list.
 > v0.3 — cascade rewritten as an explicit sequence; the two-stage flow named instead of falling through to the default.
@@ -17,6 +17,7 @@
 > v0.11 — merged against `main`: the Toast `DS-GAP` in §4b is resolved (`useToast()` now exists as a floating placement of `AlertBanner`, not a second component) but isn't wired into any scene yet; the pattern's own worked examples (scenes A, C, D) had three entity-detail Headers still using `backButton` instead of the `breadcrumb` the navigation-depth rule now requires from L2 — corrected to match.
 > v0.12 — the invisible-result branch of §4b is demonstrated, not just described: a live `useToast()` call on the `patterns-create` doc page's Anatomy tab, wrapped in its own `ToastProvider`. Still no PM prototype screen in the repo wires this in — the doc page's demo is the pattern's own proof it works, not a claim that the wiring is now free.
 > v0.13 — the per-screen `ToastProvider` from v0.12 only reached content nested inside `ScreenLayout`'s own render tree, not a screen's top-level `useToast()` call — the natural place a screen would call it, since it renders `ScreenLayout` rather than being rendered by it. Verified live: a screen-level call returned no-ops until the provider moved to the true app root (`App()` in `src/App.tsx`). Corrected there instead — `useToast()` now works from any PM prototype screen with nothing to wire.
+> v0.14 — full-page create surfaces (the step-2 wizard, the step-5 full-page form) hide the app's `Sidebar` for the duration of the flow, so a stray click can't navigate away and silently lose in-progress work. `SlideOut` and `ModalDialog` are unaffected — their backdrop already blocks the `Sidebar`.
 
 ---
 
@@ -162,6 +163,14 @@ Consistent with the cascade above — step 2 already resolves any flow of two or
 | Two or more stages, or any branching | Full-page wizard + `Stepper` + `StepperNavFooter` |
 
 `StepperNavFooter` is a page-level component. It never appears inside a `SlideOut`.
+
+### No Sidebar while a full-page create surface is open
+
+Step 2's wizard and step 5's full-page form both occupy the whole page the same way any other screen does — which means, left alone, the app's persistent `Sidebar` would still be sitting there, still clickable. That is a hazard precisely on these two surfaces: a wizard has the most stages to lose, and a form only reaches a full page by being long enough to earn one instead of a modal.
+
+**The `Sidebar` is hidden for the duration of the flow.** `Header`'s `backButton` plus the flow's own `StepperNavFooter` (`Cancel` / `Back`) are the only ways out. It reappears the moment the flow ends — landing, or a deliberate cancel.
+
+This does not extend to `SlideOut` or `ModalDialog`: both already sit on a backdrop that blocks the `Sidebar` without needing to hide it, so the hazard this rule addresses does not exist there.
 
 ### Step 1 is a hand-off, not a surface
 

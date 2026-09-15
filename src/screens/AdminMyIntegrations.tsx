@@ -5,6 +5,7 @@ import { ScreenLayout } from "@/components/layouts/screen-layout"
 import { Header }        from "@/components/ui/header"
 import { Button }        from "@/components/ui/button"
 import { Tabs }          from "@/components/ui/tabs"
+import { HighlightIcon } from "@/components/ui/highlight-icon"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -110,9 +111,7 @@ function RequestCard({
         style={{ width: "100%", textAlign: "left", background: "none", border: "none", cursor: "pointer", padding: "14px 16px" }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, background: "var(--surface)", border: "1px solid var(--border)", color: "var(--muted-foreground)", flexShrink: 0 }}>
-            {(() => { const IC = Icons[req.icon as keyof typeof Icons] as React.ElementType; return IC ? <IC size={16} /> : null })()}
-          </div>
+          <HighlightIcon size="md" variant="neutral" iconName={req.icon} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: "var(--foreground)" }}>{req.name}</span>

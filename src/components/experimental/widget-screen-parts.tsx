@@ -89,7 +89,11 @@ export function OptionCard({ icon, title, description, selected, onSelect }: {
         <div style={{ padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
           <HighlightIcon iconName={icon} variant={selected ? "informative" : "neutral"} size="sm" />
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: selected ? "var(--primary)" : "var(--color-text-title)" }}>{title}</div>
+            {/* The title keeps its default colour when selected. The border
+                and the icon already say it, and --primary on --surface is a
+                weaker contrast pair than --color-text-title — a third signal
+                that costs legibility to repeat what two others said. */}
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-title)" }}>{title}</div>
             <p style={{ fontSize: 11, color: "var(--color-text-subtitle)", margin: "2px 0 0", lineHeight: 1.4 }}>{description}</p>
           </div>
         </div>
@@ -160,7 +164,10 @@ export function StudioWelcome({ iconName, title, description, ctaLabel, onCta }:
   const [dismissed, setDismissed] = useState(false)
   if (dismissed) return null
   return (
-    <div style={{ marginBottom: 16 }}>
+    /* 24, the DS gap between a layer and the next one — this used to be 16,
+       which put the banner closer to the filters than the filters were to
+       anything else and made the top of these screens read as two clumps. */
+    <div style={{ marginBottom: 24 }}>
       <CardContainer variant="default">
         <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px" }}>
           <HighlightIcon iconName={iconName} variant="informative" size="lg" />

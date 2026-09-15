@@ -1,4 +1,4 @@
-import { useState, useRef } from "react"
+import { useState, useRef, type ReactNode } from "react"
 import * as LucideIcons from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -12,7 +12,7 @@ export type ELMetaItem = {
   iconName?:  string     // icon shown (optional when tag is set)
   label?:     string     // text label
   tooltip?:   string     // tooltip on hover; falls back to label
-  tag?:       string     // if set, renders as a lightBlue Tag chip
+  tag?:       string     // if set, renders as a neutral Tag chip
 }
 
 export type ELAction = {
@@ -50,11 +50,19 @@ export type EntityListItemData = {
   // detail: string = single-line (collapses when > detailThreshold chars)
   // detail: string[] = bullet list (always collapsible when > 1 item)
   // showLabel: false = icon + detail only, no "AI {action}" label
+  // showAiPrefix: false = render `action` verbatim, without the "AI " prefix.
+  //   The default label is "AI {action}", which reads correctly when `action` is
+  //   a generic category of output — "AI Summary", "AI Impact", "AI Escalated".
+  //   It reads wrong when `action` is a product concept with a name of its own:
+  //   "AI Next Best Action" renames the thing. Those callers turn the prefix off
+  //   and keep the label's styling, instead of turning the whole label off and
+  //   losing it. Defaults to true — every existing caller is unchanged.
   // viewMore: shows "View more →" button in expanded state
   aiInsight?: {
     action:           string
     detail:           string | string[]
     showLabel?:       boolean
+    showAiPrefix?:    boolean
     viewMore?:        boolean
     onViewMore?:      () => void  // called when "View more" is clicked — pair with ModalDialog
     defaultExpanded?: boolean
@@ -67,6 +75,34 @@ export type EntityListItemData = {
   // tags renders up to tagsMaxVisible (default 5); extras collapse into "+n" with tooltip
   tags?:           { label: string }[]
   tagsMaxVisible?: number
+  /**
+   * ── A caller-owned expansion, below the row ──────────────────────────────
+   *
+   * Added 2026-09-10 for the UCP suggestion queue, whose expanded row is the
+   * asset rather than an annotation of the row: a drafted reply, the Truth
+   * Plane facts it was grounded in, and the actions that send or hold it.
+   *
+   * The row already expanded two things — `description` past its threshold,
+   * and `aiInsight` — and neither could carry that. Both own their state
+   * internally, both render text and only text, and a queue has to be able to
+   * open a row programmatically (keyboard navigation, "the held row you were
+   * chasing has been released") which internal state cannot express.
+   *
+   * So this one is CONTROLLED: the caller holds `expanded`, which is what
+   * makes single-open-at-a-time, restore-on-return and open-from-a-link
+   * possible. The component owns the chevron, the divider and the padding, so
+   * every expanded row in the product opens the same way.
+   *
+   * It is not a second `aiInsight`. That block is for the agent's reading of
+   * the row; this is for content the row is too small to hold.
+   */
+  expandable?: {
+    expanded:  boolean
+    onToggle:  () => void
+    content:   ReactNode
+    /** Accessible name for the chevron. Defaults to "Show more". */
+    label?:    string
+  }
   onClick?:        () => void
 }
 
@@ -165,12 +201,12 @@ function MetaItemView({ meta, mode, isFirst }: { meta: ELMetaItem; mode: "icon" 
   const anchorRef = useRef<HTMLDivElement>(null)
   const [tipPos, setTipPos] = useState<{ left: number; top: number } | null>(null)
 
-  // Tag variant: renders as a lightBlue Tag chip (no bullet before tags)
+  // Tag variant: renders as a neutral Tag chip (no bullet before tags)
   if (meta.tag) {
     return (
       <div className="flex items-center gap-[4px]">
         {!isFirst && <Bullet />}
-        <Tag variant="lightBlue" size="sm">{meta.tag}</Tag>
+        <Tag variant="neutral" size="sm">{meta.tag}</Tag>
       </div>
     )
   }
@@ -232,7 +268,7 @@ function TagOverflow({ labels }: { labels: string[] }) {
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <Tag variant="lightBlue" size="sm">+{labels.length}</Tag>
+      <Tag variant="neutral" size="sm">+{labels.length}</Tag>
       {hovered && (
         <div
           className="absolute pointer-events-none z-50"
@@ -352,6 +388,23 @@ function EntityListRow({ item }: { item: EntityListItemData }) {
               {item.timestamp}
             </span>
           )}
+          {/* The expansion's own control, after the state and before the
+              kebab. A caller-owned expansion still gets the component's
+              chevron, so a row that opens looks the same everywhere. */}
+          {item.expandable && (
+            <button
+              onClick={e => { e.stopPropagation(); item.expandable!.onToggle() }}
+              aria-expanded={item.expandable.expanded}
+              aria-label={item.expandable.label ?? (item.expandable.expanded ? "Show less" : "Show more")}
+              className="shrink-0 w-[24px] h-[24px] flex items-center justify-center rounded-[4px] transition-opacity hover:opacity-70"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              {item.expandable.expanded
+                ? (ChevronUpIcon   && <ChevronUpIcon   size={16} strokeWidth={1.75} />)
+                : (ChevronDownIcon && <ChevronDownIcon size={16} strokeWidth={1.75} />)
+              }
+            </button>
+          )}
           {item.showMenu && MoreHorizontalIcon && (
             <button
               onClick={e => { e.stopPropagation(); item.onMenuClick?.() }}
@@ -414,7 +467,13 @@ function EntityListRow({ item }: { item: EntityListItemData }) {
               "flex flex-col gap-[6px] px-[8px] py-[8px] rounded-[8px]",
               !isLong && "self-start"  // adapt to text width when short; full-width when long
             )}
-            style={{ background: "var(--tag-purple-bg)", border: "1px solid var(--tag-purple-bd)" }}
+            // Card tokens, not tag tokens. The background is the same value in
+            // both families, but --tag-purple-bd is a full-strength #a855f7
+            // meant to outline a Tag, and at card size it reads as a loud box
+            // rather than a surface. --card-purple-border is the 20% border the
+            // same block uses inside RecordHeader, so the row and the profile
+            // now render the recommendation as the same object.
+            style={{ background: "var(--card-purple-bg)", border: "1px solid var(--card-purple-border)" }}
             onClick={e => e.stopPropagation()}
           >
             {/* Header row: sparkle · label · inline-text (short/collapsed) · [view more] · chevron */}
@@ -423,9 +482,15 @@ function EntityListRow({ item }: { item: EntityListItemData }) {
               {ai.showLabel !== false && (
                 <>
                   <span className="text-[13px] font-semibold whitespace-nowrap" style={{ color: "var(--foreground)" }}>
-                    AI {ai.action}
+                    {ai.showAiPrefix === false ? ai.action : `AI ${ai.action}`}
                   </span>
-                  <span className="text-[13px]" style={{ color: "var(--tag-purple-fg)" }}>·</span>
+                  {/* The separator only exists to divide the label from the
+                      inline detail. When the block is expanded the inline
+                      detail moves out of this row, so the separator was left
+                      dangling at the end of the label with nothing after it. */}
+                  {(!isLong || !aiExpanded) && (
+                    <span className="text-[13px]" style={{ color: "var(--tag-purple-fg)" }}>·</span>
+                  )}
                 </>
               )}
               {/* Inline detail: always shown when short; truncated when long+collapsed */}
@@ -445,7 +510,13 @@ function EntityListRow({ item }: { item: EntityListItemData }) {
               {isLong && aiExpanded && <div className="flex-1" />}
               {/* Right controls: View more (expanded only) + chevron */}
               {isLong && (
-                <div className="flex items-center gap-[6px] shrink-0">
+                // NEUTRAL, never light blue. Michael, 2026-09-09: a coloured
+              // classification competes with the row's `state`, which is the one
+              // thing on the row whose colour means something — a blue
+              // "Customer" beside a green "Active" reads as two statuses. Same
+              // rule the Entity Header already applies to its classification
+              // tag, where the component strips any tone the caller passes.
+              <div className="flex items-center gap-[6px] shrink-0">
                   {aiExpanded && ai.viewMore && (
                     <button
                       className="text-xs font-medium px-[10px] h-[24px] rounded-[4px] transition-opacity hover:opacity-70"
@@ -503,12 +574,25 @@ function EntityListRow({ item }: { item: EntityListItemData }) {
             return (
               <div className="flex items-center gap-[6px] shrink-0">
                 {visible.map((tag, i) => (
-                  <Tag key={i} variant="lightBlue" size="sm">{tag.label}</Tag>
+                  <Tag key={i} variant="neutral" size="sm">{tag.label}</Tag>
                 ))}
                 {hidden.length > 0 && <TagOverflow labels={hidden.map(t => t.label)} />}
               </div>
             )
           })()}
+        </div>
+      )}
+
+      {/* ── The caller's expansion ──
+          Inside the row's own padding, under a divider, so it reads as more of
+          THIS row rather than as a second card appearing beneath it. */}
+      {item.expandable?.expanded && (
+        <div
+          className="flex flex-col gap-[8px] pt-[10px] mt-[2px]"
+          style={{ borderTop: "0.5px solid var(--field-border)" }}
+          onClick={e => e.stopPropagation()}
+        >
+          {item.expandable.content}
         </div>
       )}
     </div>

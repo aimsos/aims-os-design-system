@@ -50,6 +50,14 @@ export interface WidgetPreviewProps {
    * through the middle of a row reads as a rendering bug.
    */
   clipTo?: number
+  /**
+   * The preview filter the viewer has applied, if this surface offers any.
+   *
+   * Only the chart modes read it, and only to re-shape their own fixtures — a
+   * chip that changes nothing teaches that filters do nothing. A catalog card
+   * or a canvas slot has no filter row and leaves this unset.
+   */
+  filter?: string | null
   className?: string
 }
 
@@ -65,13 +73,13 @@ export function hasWidgetContent(typeId: string): boolean {
  * caller wraps it: WidgetFather in the builder, a card in the library, a canvas
  * slot in a profile.
  */
-export function WidgetPreview({ typeId, fallbackHeight = 120, clipTo, className }: WidgetPreviewProps) {
+export function WidgetPreview({ typeId, fallbackHeight = 120, clipTo, filter = null, className }: WidgetPreviewProps) {
   const def = WIDGET_CATALOG.find(w => w.id === typeId)
 
   const body = !def
     ? <WidgetShapePreview shape="kpi" height={fallbackHeight} seed={seedFrom(typeId)} />
     : hasChartMode(def.id)
-      ? <ChartModeContent id={def.id} />
+      ? <ChartModeContent id={def.id} filter={filter} />
       : def.catalogId
         ? <WidgetContent id={def.catalogId} />
         : hasCandidateContent(def.id)

@@ -29,7 +29,13 @@ import { cn } from "@/lib/utils"
 
 const tagVariants = cva(
   [
-    "inline-flex items-center shrink-0 rounded-[8px] border font-medium leading-none",
+    // `w-fit` is what makes a Tag hug its text in EVERY container, not just
+    // in a row. `inline-flex` + `shrink-0` already sized it to content
+    // horizontally, but a flex COLUMN stretches its children on the cross
+    // axis, so a Tag placed in one grew to the full panel width — a status
+    // pill as wide as the panel reads as a banner. Width fit-content is
+    // inert in a row and fixes it in a column and in a grid cell.
+    "inline-flex w-fit items-center shrink-0 rounded-[8px] border font-medium leading-none",
     "gap-[4px] transition-opacity",
     "[&_svg]:pointer-events-none [&_svg]:shrink-0",
   ],

@@ -132,6 +132,35 @@ export interface SlideOutProps {
    * Default: true (unchanged 2-button footer).
    */
   showCtaSecondary?: boolean
+  /**
+   * Footer button size, when the panel's own size is the wrong thing to derive
+   * it from. Added 2026-09-11.
+   *
+   * The footer took `isM ? "default" : "sm"`, which couples the BUTTON's size
+   * to the PANEL's width — and those answer different questions. A 350px
+   * panel is a width decision; whether its footer needs 40px buttons is a
+   * density decision, and at 350px two M buttons with real labels run out of
+   * room and truncate ("iew the activity log"). Optional, and the default is
+   * the old derivation, so no existing panel moves.
+   */
+  /**
+   * WHICH SNAP THE PANEL OPENS ON. Added 2026-09-11.
+   *
+   * The drag already snaps to 350 / 450 / half-screen; what was missing was a
+   * way to START on one of them. Content decides this, not the caller's taste:
+   * a preview you skim belongs at 350, and a panel whose job is to let you
+   * READ something — a note somebody wrote in full paragraphs — wastes the
+   * reader's time at a width that wraps every sentence three times.
+   *
+   * Named snaps rather than a pixel width, because the whole point of the
+   * snap system is that a panel is never at an arbitrary width. "half" is
+   * computed at open time, so it follows the window rather than freezing a
+   * number from whatever the viewport was on first render.
+   *
+   * Optional, defaulting to the panel's own 350 — no existing caller moves.
+   */
+  initialSnap?: "default" | "medium" | "half"
+  ctaSize?: "default" | "sm"
   ctaPrimaryLabel?: string
   ctaSecondaryLabel?: string
   onCtaPrimary?: () => void
@@ -178,6 +207,8 @@ export function SlideOut({
   children,
   showCta = true,
   showCtaSecondary = true,
+  initialSnap = "default",
+  ctaSize,
   ctaPrimaryLabel = "Button",
   ctaSecondaryLabel = "Button",
   onCtaPrimary,
@@ -187,6 +218,13 @@ export function SlideOut({
 }: SlideOutProps) {
   const isM = size === "m"
   const isWithVariants = type === "with-variants"
+  // The CTA footer used to be with-variants only, so a full-slot panel had
+  // nowhere to put its main action and every screen put a small secondary
+  // Button under its own title instead — a page-level control masquerading as
+  // body content. full-slot has no DS-default footer, so it opts in by wiring
+  // an action: no existing full-slot call site passes onCtaPrimary, which is
+  // what makes this additive rather than a footer appearing on five screens.
+  const showFooter = showCta && (isWithVariants || (type === "full-slot" && !!onCtaPrimary))
   const isBottom = anchor === "bottom"
 
   // ── Drag-to-resize state ────────────────────────────────────────────────
@@ -197,7 +235,20 @@ export function SlideOut({
   })
 
   const defaultWidth = 350
-  const panelWidth = dragWidth ?? defaultWidth
+  const SNAP_MEDIUM  = 450
+
+  /* The opening width, recomputed each time the panel opens so "half" tracks
+     the window instead of freezing whatever it was on first render. A drag
+     always wins: once the reader has chosen a width, the caller's preference
+     is no longer the authority on it. */
+  const [snapWidth, setSnapWidth] = useState<number | null>(null)
+  useEffect(() => {
+    if (!open) { setSnapWidth(null); return }
+    if (initialSnap === "default") { setSnapWidth(null); return }
+    setSnapWidth(initialSnap === "medium" ? SNAP_MEDIUM : Math.floor(window.innerWidth / 2))
+  }, [open, initialSnap])
+
+  const panelWidth = dragWidth ?? snapWidth ?? defaultWidth
 
   // ── Chips scroll ref ────────────────────────────────────────────────────
   const chipsContainerRef = useRef<HTMLDivElement>(null)
@@ -205,15 +256,13 @@ export function SlideOut({
     chipsContainerRef.current?.scrollBy({ left: 200, behavior: "smooth" })
   }
 
-  const SNAP_MEDIUM = 450
-
   const handleResizeMouseDown = (e: React.MouseEvent) => {
     if (previewMode) return
     e.preventDefault()
     e.stopPropagation()
     const snapHalf  = Math.floor(window.innerWidth / 2)
     const snapPoints = [defaultWidth, SNAP_MEDIUM, snapHalf]
-    const startWidth = dragWidth ?? defaultWidth
+    const startWidth = dragWidth ?? snapWidth ?? defaultWidth
     dragRef.current = { startX: e.clientX, startWidth, active: true }
     setIsActiveDrag(true)
 
@@ -575,12 +624,12 @@ export function SlideOut({
       )}
 
       {/* ── CTA footer — DS Button component for correct hover states ─────── */}
-      {isWithVariants && showCta && (
+      {showFooter && (
         <div className="flex gap-[8px] items-center justify-end shrink-0 w-full">
           {showCtaSecondary && (
             <Button
               variant="secondary"
-              size={isM ? "default" : "sm"}
+              size={ctaSize ?? (isM ? "default" : "sm")}
               onClick={onCtaSecondary}
             >
               {ctaSecondaryLabel}
@@ -588,7 +637,7 @@ export function SlideOut({
           )}
           <Button
             variant="primary"
-            size={isM ? "default" : "sm"}
+            size={ctaSize ?? (isM ? "default" : "sm")}
             onClick={onCtaPrimary}
           >
             {ctaPrimaryLabel}

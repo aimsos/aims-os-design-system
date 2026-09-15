@@ -27,6 +27,16 @@ export type ModalDialogProps = {
   informativeCard?:   string | boolean      // true → default text; string → custom title
   ctaPrimary?:        { label: string; destructive?: boolean; disabled?: boolean; onClick?: () => void }
   ctaSecondary?:      { label: string; disabled?: boolean; onClick?: () => void }
+  /**
+   * A third action, lowest in the hierarchy. Rare on purpose: a dialog with
+   * three ways out is usually one that has not decided what it is asking.
+   * The case it exists for is a save that can end in genuinely different
+   * places — save and stay, save and start another, don't save.
+   *
+   * Rendered left of the other two, following the DS order
+   * primary → secondary → tertiary read right to left in a right-aligned row.
+   */
+  ctaTertiary?:       { label: string; disabled?: boolean; onClick?: () => void }
   showClose?:         boolean               // default: true
   embedded?:          boolean               // static inline render for docs previews
 }
@@ -49,6 +59,7 @@ export function ModalDialog({
   informativeCard,
   ctaPrimary,
   ctaSecondary,
+  ctaTertiary,
   showClose        = true,
   embedded         = false,
 }: ModalDialogProps) {
@@ -201,11 +212,21 @@ export function ModalDialog({
       )}
 
       {/* ── CTAs ──────────────────────────────────────────────────────────── */}
-      {(ctaPrimary || ctaSecondary) && (
+      {(ctaPrimary || ctaSecondary || ctaTertiary) && (
         <div className={[
           "flex items-center gap-[12px] pt-[8px]",
           isConfirmation ? "justify-center" : "justify-end",
         ].join(" ")}>
+          {ctaTertiary && (
+            <Button
+              variant="tertiary"
+              size="default"
+              disabled={ctaTertiary.disabled}
+              onClick={embedded ? undefined : ctaTertiary.onClick}
+            >
+              {ctaTertiary.label}
+            </Button>
+          )}
           {ctaSecondary && (
             <Button
               variant="secondary"

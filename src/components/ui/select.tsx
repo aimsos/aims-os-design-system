@@ -14,6 +14,12 @@ import { cn } from "@/lib/utils"
  * States (DS exact):
  *   default  → gray border 0.5px · ChevronDown · placeholder text
  *   selected → blue border 1px   · X (clear)   · value text
+ *              …but ONLY when `onClear` is supplied. Without a handler the X
+ *              renders, invites a click and does nothing, which is worse than
+ *              no affordance at all — 76 of the 80 Select call sites in this
+ *              repo were in exactly that state. No handler → ChevronDown, the
+ *              same glyph the field shows when it has no value, because in
+ *              both cases the only thing the right side can do is open.
  *   open     → blue border 1px   · ChevronUp   · value or placeholder
  *   error    → red border 0.5px  · CircleAlert · placeholder or value
  *   disabled → light border 1px  · ChevronDown · opacity 40%
@@ -98,12 +104,15 @@ const supportingCva = cva("text-xs font-medium leading-[1.5]", {
 /**
  * The combobox row forwards its ref and any extra props.
  *
- * Select is a trigger with no list of its own — CLAUDE.md tells screens to pair
- * it with a base-ui Popover for the options. That pairing could not actually be
- * built: `Popover.Trigger render={<Select/>}` had nowhere to attach its ref or
- * handlers, and anchoring a wrapper div instead made base-ui read the click as
- * an outside click and dismiss the popup on the same tick. Forwarding the ref
- * to the combobox element is what makes the documented composition work.
+ * Select is a trigger with no list of its own, so a screen supplies the list.
+ * Two compositions work; `dropdown-anchor` + `Menu` is the default, and a
+ * wrapper-anchored base-ui Popover is the alternative for a Select's own
+ * options (`PgInteractiveSelect` in App.tsx is the live reference).
+ *
+ * `Popover.Trigger render={<Select/>}` is the one thing that cannot be built —
+ * Select renders a div and the Trigger has nowhere to attach. This docblock
+ * used to go further and say a wrapper div was dismissed as an outside click
+ * too; that was wrong, corrected 2026-09-10 by clicking the deployed example.
  */
 const Select = forwardRef<HTMLDivElement, SelectProps & React.HTMLAttributes<HTMLDivElement>>(function Select({
   value,
@@ -215,10 +224,11 @@ const Select = forwardRef<HTMLDivElement, SelectProps & React.HTMLAttributes<HTM
         <span className={cn("shrink-0 flex items-center", rightIconColor)}>
           {open ? (
             <ChevronUp size={16} strokeWidth={1.75} />
-          ) : hasValue ? (
+          ) : hasValue && onClear ? (
             <button
               type="button"
               tabIndex={-1}
+              aria-label="Clear selection"
               onClick={handleClear}
               className="flex items-center cursor-pointer hover:opacity-70 transition-opacity"
             >

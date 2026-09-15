@@ -46,7 +46,6 @@ function SectionCard({ title, description, action, children }: {
       <CardContainer variant="default" size="default" className="!p-0 overflow-hidden">
         <div style={{
           padding: "14px 20px", borderBottom: "1px solid var(--border)",
-          background: "var(--surface-raised)",
           display: "flex", alignItems: "center", justifyContent: "space-between",
         }}>
           <div>
@@ -250,7 +249,7 @@ function InvoiceHistory() {
 function CostBreakdown() {
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)", overflow: "hidden", marginBottom: 16 }}>
-      <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", background: "var(--surface-raised)" }}>
+      <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>Cost breakdown</div>
         <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>Aug 1 – Aug 26</div>
       </div>
@@ -290,8 +289,7 @@ function SeatManagement() {
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)", overflow: "hidden" }}>
       <div style={{
-        padding: "14px 18px", borderBottom: "1px solid var(--border)",
-        background: "var(--surface-raised)", display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center",
       }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>Seats</div>
         <Button variant="secondary" size="sm">Add seats</Button>

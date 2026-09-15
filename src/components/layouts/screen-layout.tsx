@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 import { Sparkles, Bell, Settings } from "lucide-react"
 import { Topbar } from "@/components/ui/topbar"
@@ -6,6 +6,7 @@ import type { TopbarAction } from "@/components/ui/topbar"
 import { Sidebar } from "@/components/ui/sidebar"
 import type { SidebarEntry } from "@/components/ui/sidebar"
 import { AppBackground } from "@/components/ui/app-background"
+import { PageScrollContext, type PageScrollApi, type PageScrollInfo } from "@/lib/page-scroll"
 import type { AppBgVariant } from "@/components/ui/app-background"
 import { NotificationCenter, type NotificationGroup, type NotificationItemData } from "@/components/ui/notification-center"
 
@@ -126,6 +127,17 @@ export interface ScreenLayoutProps {
    */
   sidebarFooter?: React.ReactNode | ((collapsed: boolean) => React.ReactNode)
   /**
+   * Hide the Sidebar entirely. For full-page CREATE surfaces only — a wizard
+   * or a full-page create form, per the Create pattern in CLAUDE.md: those
+   * occupy the whole page, so a persistent Sidebar sits there still clickable
+   * on exactly the two surfaces with the most work to lose. `Header`'s
+   * backButton and the flow's own StepperNavFooter are then the only ways out.
+   *
+   * Not for SlideOut or ModalDialog — both already sit on a backdrop that
+   * blocks the Sidebar. Default: false.
+   */
+  hideSidebar?: boolean
+  /**
    * Header render prop — receives isScrolled (true when content scrollTop > 16px).
    * Use it to switch between Header size="size-l" (default) and size="compress".
    *
@@ -154,6 +166,26 @@ export interface ScreenLayoutProps {
    * }
    */
   pagination?: ReactNode
+  /**
+   * ── A panel that divides the PAGE ──────────────────────────────────────
+   *
+   * Added 2026-09-11. Rendered as a sibling of the main column, inside the
+   * same flex row as the Sidebar — so it spans from under the Topbar to the
+   * bottom of the window and the header, the content and the pagination all
+   * sit to its left.
+   *
+   * WHY IT CANNOT JUST GO IN `children`. A SidePanel is a layout panel, not
+   * an overlay: it takes its width out of the flow. Put inside `children` it
+   * is inside the SCROLL CONTAINER and below the header zone, so it starts
+   * where the content starts, ends where the content ends, and scrolls with
+   * it — a column the height of whatever happens to be on screen rather than
+   * a division of the page. Gmail's Gemini panel is the reference and it is
+   * the full height of the window for the same reason.
+   *
+   * The screen still owns the panel's open state and its props; this slot
+   * only says WHERE it belongs.
+   */
+  sidePanel?: ReactNode
 }
 
 export function ScreenLayout({
@@ -169,22 +201,56 @@ export function ScreenLayout({
   activeSidebarId,
   onSidebarItemClick,
   sidebarFooter,
+  hideSidebar = false,
   header,
   children,
   pagination,
+  sidePanel,
 }: ScreenLayoutProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [isScrolled, setIsScrolled] = useState(false)
 
+  // ── The page's scroll position, published to anything that asks ─────────
+  // This layout created the element that scrolls, so it is the only thing on
+  // the page that knows which one it is with certainty. A component that
+  // tries to work that out for itself gets it wrong in both directions: a
+  // card pinned in the header zone below has no scrollable ancestor to find,
+  // and a screen holds several scrollers, most of them parked at zero.
+  //
+  // Listeners are held in a ref and called directly. Putting the position in
+  // state would re-render every screen on every scroll frame; this way the
+  // context value is created once, never changes identity, and a scroll costs
+  // nothing outside the components that subscribed.
+  const scrollListeners = useRef(new Set<(info: PageScrollInfo) => void>())
+  const readScroll = useCallback((): PageScrollInfo => {
+    const el = scrollRef.current
+    if (!el) return { top: 0, max: 0 }
+    return { top: el.scrollTop, max: Math.max(0, el.scrollHeight - el.clientHeight) }
+  }, [])
+  const pageScroll = useMemo<PageScrollApi>(() => ({
+    subscribe: listener => {
+      scrollListeners.current.add(listener)
+      return () => { scrollListeners.current.delete(listener) }
+    },
+    read: readScroll,
+  }), [readScroll])
+
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    const handler = () => setIsScrolled(el.scrollTop > 16)
-    el.addEventListener("scroll", handler)
+    const handler = () => {
+      setIsScrolled(el.scrollTop > 16)
+      if (scrollListeners.current.size > 0) {
+        const info = readScroll()
+        scrollListeners.current.forEach(l => l(info))
+      }
+    }
+    el.addEventListener("scroll", handler, { passive: true })
     return () => el.removeEventListener("scroll", handler)
-  }, [])
+  }, [readScroll])
 
   return (
+    <PageScrollContext.Provider value={pageScroll}>
     <div className="h-screen flex flex-col">
       <AppBackground variant={bgVariant} />
       <Topbar
@@ -197,14 +263,17 @@ export function ScreenLayout({
       />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left sidebar — collapsed by default to maximise content area */}
-        <Sidebar
-          items={sidebarItems}
-          activeId={activeSidebarId}
-          defaultCollapsed={true}
-          onItemClick={onSidebarItemClick}
-          footer={sidebarFooter}
-        />
+        {/* Left sidebar — collapsed by default to maximise content area.
+            Absent entirely on a full-page create surface (see hideSidebar). */}
+        {!hideSidebar && (
+          <Sidebar
+            items={sidebarItems}
+            activeId={activeSidebarId}
+            defaultCollapsed={true}
+            onItemClick={onSidebarItemClick}
+            footer={sidebarFooter}
+          />
+        )}
 
         {/* Main column */}
         <div className="flex flex-col flex-1 overflow-hidden">
@@ -250,7 +319,13 @@ export function ScreenLayout({
 
           </div>
         </div>
+
+        {/* The page divider. After the main column and inside the same row as
+            the Sidebar, so it runs the full height and the content yields its
+            width rather than sliding underneath. */}
+        {sidePanel}
       </div>
     </div>
+    </PageScrollContext.Provider>
   )
 }

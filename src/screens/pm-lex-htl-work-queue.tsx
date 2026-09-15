@@ -537,7 +537,7 @@ function EventSlideOutContent({ event }: { event: HtlEvent | null }) {
         marginBottom: 0,
       }} />
 
-      <div style={{ padding: "16px 24px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ padding: "16px 0 24px", display: "flex", flexDirection: "column", gap: 16 }}>
         {/* Badges */}
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
           <Tag variant={SEVERITY_TAG_VARIANT[event.severity]} size="sm">{SEVERITY_LABEL[event.severity]}</Tag>

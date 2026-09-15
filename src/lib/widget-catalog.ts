@@ -88,11 +88,25 @@ export const WIDGET_CATALOG: WidgetTypeDef[] = [
   { id: "stacked-bar",     label: "Stacked Bar",     icon: "BarChartBig",  category: "statistical",  shape: "bars",      catalogId: "charts",          authorable: true,  bestFor: "Totals and their make-up in one bar." },
   { id: "sparkline",       label: "Sparkline",       icon: "Activity",     category: "statistical",  shape: "line",      catalogId: "charts",          authorable: true,  bestFor: "A trend small enough to sit beside a number." },
   { id: "ai-summary",      label: "AI Summary",      icon: "Sparkles", category: "statistical",  shape: "notes",     catalogId: null,              authorable: true,  bestFor: "A written read of the data, not the data itself." },
+  // The other AI surface, and the pair is the point: one INTERPRETS (a
+  // written read), the other PROPOSES (the single action to take next). The
+  // recommendation already has a promoted DS component —
+  // NextBestActionCard in ui/ — and this type renders that same component
+  // with `unstyled`, because a widget slot supplies its own surface. It is a
+  // candidate because the WIDGET as a placement is not specified yet; the
+  // card below an Entity Header is.
+  { id: "next-best-action", label: "Next Best Action", icon: "Sparkle", category: "statistical",  shape: "notes",     catalogId: null,              authorable: true,  bestFor: "The one action the engine recommends next." },
 
   // ── Data display ──────────────────────────────────────────────────────────
   { id: "table",           label: "Table",           icon: "Table2", category: "data-display", shape: "table",     catalogId: "table",           authorable: true,  bestFor: "Detailed row-by-row review." },
   { id: "list",            label: "List",            icon: "List", category: "data-display", shape: "tasks",     catalogId: null,              authorable: true,  bestFor: "Scannable items with one status each." },
   { id: "profile-card",    label: "Profile Card",    icon: "IdCard", category: "data-display", shape: "roster",    catalogId: null,              authorable: true,  bestFor: "Key fields of one entity record." },
+  // How a record hangs off other records — employer, account owner, deal
+  // participant, the agent that handles it. NOT the List type: List is
+  // items with a STATUS each, and a relationship is not a status. Named
+  // from the UCP, where the profile has carried this since 2026-09 with no
+  // type in this list to file it under.
+  { id: "connections",     label: "Connections",     icon: "Share2", category: "data-display", shape: "roster",    catalogId: null,              authorable: true,  bestFor: "How this record relates to others." },
   { id: "carousel",        label: "Carousel",        icon: "GalleryHorizontal", category: "data-display", shape: "carousel",  catalogId: null,              authorable: true,  bestFor: "A few rich items, browsed sideways." },
   { id: "board",           label: "Board",           icon: "Kanban", category: "data-display", shape: "status",    catalogId: null,              authorable: true,  bestFor: "Counts grouped by lifecycle state." },
   { id: "feed",            label: "Feed",            icon: "Rss", category: "data-display", shape: "feed",      catalogId: "activity",        authorable: true,  bestFor: "What happened, newest first." },
@@ -147,6 +161,10 @@ export const widgetType = (id: string) => WIDGET_CATALOG.find(w => w.id === id)
 
 export const LIBRARY_SKELETONS = [
   "KPI", "Chart", "Feed", "Gauge", "Donut", "Board", "Funnel", "Stat Row", "Alerts", "Cost KPI",
+  // The library's "Next Best Action" was filed as a KPI, so its card drew a
+  // headline number for something that is a sentence and two actions. It has
+  // its own type now, and the type renders the real DS card.
+  "Next Best Action",
 ] as const
 
 export type LibrarySkeleton = (typeof LIBRARY_SKELETONS)[number]
@@ -164,6 +182,13 @@ const SKELETON_TYPE: Record<LibrarySkeleton, string> = {
   "Stat Row": "stat-row",
   "Alerts":   "alerts",
   "Cost KPI": "cost-kpi",
+  "Next Best Action": "next-best-action",
 }
 
 export const typeIdForSkeleton = (s: LibrarySkeleton): string => SKELETON_TYPE[s]
+
+/** The same, for a label that may not be a library skeleton at all — a widget
+ *  saved from the builder carries its type's own name ("Bar Chart"), which the
+ *  ten-name library vocabulary does not have to contain. */
+export const typeIdForLabel = (s: string | null | undefined): string | null =>
+  s && s in SKELETON_TYPE ? SKELETON_TYPE[s as LibrarySkeleton] : null

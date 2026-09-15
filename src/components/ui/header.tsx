@@ -35,7 +35,15 @@ export interface HeaderProps {
   title: string
   /** Subtitle below the title. Hidden in compress. */
   description?: string
-  /** Size variant. "size-l" = 24px title + full padding. "size-m" = 18px. "compress" = 18px, description/tag/icon hidden; back button hidden unless showBackInCompress is true. */
+  /**
+   * Size variant. "size-m" = 18px title. "compress" = 18px, description/tag/icon
+   * hidden; back button hidden unless showBackInCompress is true.
+   *
+   * "size-l" = 24px title + full padding, AND ONLY AT XL (≥1920px). Below that
+   * it renders as "size-m" — the tall bar is for a Wide screen, and anywhere
+   * narrower it spends height the content needs. Ask for it freely; the
+   * component decides whether the screen has earned it.
+   */
   size?: HeaderSize
   /** Tag node rendered inline after the title. Hidden in compress. */
   tag?: React.ReactNode
@@ -202,6 +210,43 @@ function renderAction(action: HeaderAction, fallback: HeaderActionPriority) {
   )
 }
 
+/**
+ * `size-l` IS A CEILING, NOT A SETTING (Michael, 2026-09-09).
+ *
+ * The 24px title and its taller padding are for a Wide screen. Everywhere
+ * else that height is spent on a bar the reader has already read, and it is
+ * spent at the top of the page where it costs the content most. So a caller
+ * asking for `size-l` gets `size-m` until the viewport is genuinely wide, and
+ * `size-l` only at XL.
+ *
+ * XL is 1920px — the DS breakpoint table (Figma node 6729:35011), tier `xl`,
+ * "Wide". Not a number invented here.
+ *
+ * MEASURED ON THE VIEWPORT, not on a container, which is the opposite of the
+ * EntityHeader's reflow and correct for the opposite reason: that card can
+ * sit in a narrow panel on a wide screen, while this bar always spans the
+ * page. The DS breakpoints are defined in viewport terms, so this is the one
+ * place a media query is the honest instrument.
+ *
+ * `compress` is untouched — it is scroll state, not a size, and the screen
+ * still owns it.
+ */
+const XL_MIN_WIDTH = 1920
+
+function useIsWide() {
+  const [wide, setWide] = useState(
+    () => typeof window !== "undefined" && window.matchMedia(`(min-width: ${XL_MIN_WIDTH}px)`).matches
+  )
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${XL_MIN_WIDTH}px)`)
+    const onChange = () => setWide(mq.matches)
+    onChange()
+    mq.addEventListener("change", onChange)
+    return () => mq.removeEventListener("change", onChange)
+  }, [])
+  return wide
+}
+
 export function Header({
   title,
   description,
@@ -222,7 +267,12 @@ export function Header({
   className,
   style,
 }: HeaderProps) {
-  const isCompress = size === "compress"
+  // `size` is what the caller asked for; `resolved` is what renders. The only
+  // difference is the L→M downgrade below XL — see useIsWide.
+  const isWide = useIsWide()
+  const resolved: HeaderSize = size === "size-l" && !isWide ? "size-m" : size
+
+  const isCompress = resolved === "compress"
   const hasFilters = isCompress && !!filters
 
   return (
@@ -230,7 +280,7 @@ export function Header({
       {/* Title row */}
       <div
         className="flex items-center justify-between gap-[16px]"
-        style={{ padding: hasFilters ? "8px 24px 8px" : PADDING[size] }}
+        style={{ padding: hasFilters ? "8px 24px 8px" : PADDING[resolved] }}
       >
         {/* Left zone: back button + icon + title + tag + description */}
         <div className="flex items-start gap-[8px] min-w-0 flex-1">
@@ -262,7 +312,7 @@ export function Header({
             <div className="flex items-center gap-[8px]">
               <h1
                 className="font-semibold leading-tight m-0"
-                style={{ fontSize: TITLE_PX[size], color: "var(--header-title)" }}
+                style={{ fontSize: TITLE_PX[resolved], color: "var(--header-title)" }}
               >
                 {title}
               </h1>

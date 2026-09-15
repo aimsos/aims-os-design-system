@@ -1,6 +1,6 @@
 /**
  * Tag Input — AIMS OS DS · node 16937:21999
- * Figma field logic: Enter/button commit · case-insensitive dedup · chips wrap ·
+ * Figma field logic: Enter/button/blur commit · case-insensitive dedup · chips wrap ·
  * overflow collapses to "View more: +N" after maxVisibleTags · maxTags cap disables field.
  * All tokens are canonical DS tokens — no component-level aliases needed.
  */
@@ -23,6 +23,27 @@ export interface TagInputProps {
   maxTags?: number
   /** Tags shown before collapsing to "+N". Default: 8 */
   maxVisibleTags?: number
+  /**
+   * Show the "Add tag" commit button beside the field. Default: true.
+   *
+   * Off for fields where the button reads as a second, competing action rather
+   * than part of the field — an invite form's email row, where the dialog
+   * already has its own primary CTA. Enter still commits, so nothing becomes
+   * unreachable; say so in the field's helper text when you turn it off,
+   * because the button was the only visible hint that a commit step exists.
+   */
+  showAddButton?: boolean
+  /**
+   * Fires with the uncommitted text as the user types, "" once it is committed
+   * or cleared.
+   *
+   * A caller that gates a CTA on `tags.length` otherwise reads a field the user
+   * has visibly filled in as empty: they type one address, click the button,
+   * and nothing happens because the address is still a draft. Gate on
+   * `tags.length > 0 || draft.trim()` instead — the blur commit below turns the
+   * draft into a tag before the click lands.
+   */
+  onDraftChange?: (draft: string) => void
   className?: string
 }
 
@@ -43,6 +64,8 @@ export function TagInput({
   error,
   maxTags = 30,
   maxVisibleTags = 8,
+  showAddButton = true,
+  onDraftChange,
   className,
 }: TagInputProps) {
   const [inputValue, setInputValue] = useState("")
@@ -50,9 +73,16 @@ export function TagInput({
   const [expanded, setExpanded] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  /** Escape blurs on purpose after clearing — that blur must not re-commit. */
+  const escaping = useRef(false)
 
   const maxReached = tags.length >= maxTags
   const isInputDisabled = disabled || maxReached
+
+  const setDraft = useCallback((v: string) => {
+    setInputValue(v)
+    onDraftChange?.(v)
+  }, [onDraftChange])
 
   const commit = useCallback(() => {
     const trimmed = inputValue.trim()
@@ -60,17 +90,18 @@ export function TagInput({
     if (!tags.some(t => t.toLowerCase() === trimmed.toLowerCase())) {
       onAddTag(trimmed)
     }
-    setInputValue("")
-  }, [inputValue, tags, onAddTag])
+    setDraft("")
+  }, [inputValue, tags, onAddTag, setDraft])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") { e.preventDefault(); commit() }
     if (e.key === "Escape") {
-      setInputValue("")
+      escaping.current = true
+      setDraft("")
       setExpanded(false)
       inputRef.current?.blur()
     }
-  }, [commit])
+  }, [commit, setDraft])
 
   // Collapse expanded chip list when clicking outside — DS spec: "Collapse back by clicking away"
   useEffect(() => {
@@ -117,10 +148,18 @@ export function TagInput({
           <input
             ref={inputRef}
             value={inputValue}
-            onChange={e => setInputValue(e.target.value)}
+            onChange={e => setDraft(e.target.value)}
             onKeyDown={handleKeyDown}
             onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
+            onBlur={() => {
+              setFocused(false)
+              // Leaving the field keeps what was typed. Throwing it away is the
+              // behaviour every chip field has been talked out of: the user has
+              // already seen their text sitting in the box, so silently
+              // discarding it reads as the app losing their input.
+              if (escaping.current) escaping.current = false
+              else commit()
+            }}
             disabled={isInputDisabled}
             placeholder={placeholder}
             className="w-full bg-transparent text-sm font-medium outline-none border-none"
@@ -132,22 +171,24 @@ export function TagInput({
         </div>
 
         {/* Add tag button */}
-        <button
-          onClick={commit}
-          disabled={isInputDisabled}
-          className="shrink-0 flex items-center justify-center rounded-[8px] px-[16px] text-sm font-medium whitespace-nowrap"
-          style={{
-            height: 40,
-            background: isInputDisabled ? "var(--color-surface-neutral-subtle)" : "var(--surface)",
-            border: isInputDisabled
-              ? "1px solid var(--color-border-neutral-lighter)"
-              : "1px solid var(--field-border)",
-            color: isInputDisabled ? "var(--field-placeholder)" : "var(--foreground)",
-            cursor: isInputDisabled ? "not-allowed" : "pointer",
-          }}
-        >
-          Add tag
-        </button>
+        {showAddButton && (
+          <button
+            onClick={commit}
+            disabled={isInputDisabled}
+            className="shrink-0 flex items-center justify-center rounded-[8px] px-[16px] text-sm font-medium whitespace-nowrap"
+            style={{
+              height: 40,
+              background: isInputDisabled ? "var(--color-surface-neutral-subtle)" : "var(--surface)",
+              border: isInputDisabled
+                ? "1px solid var(--color-border-neutral-lighter)"
+                : "1px solid var(--field-border)",
+              color: isInputDisabled ? "var(--field-placeholder)" : "var(--foreground)",
+              cursor: isInputDisabled ? "not-allowed" : "pointer",
+            }}
+          >
+            Add tag
+          </button>
+        )}
       </div>
 
       {/* ── Error / max-reached message ────────────────────────────────── */}

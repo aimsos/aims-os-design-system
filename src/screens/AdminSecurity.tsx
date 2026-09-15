@@ -24,8 +24,7 @@ function SectionCard({ title, description, badge, children }: {
     <div style={{ marginBottom: 16 }}>
       <CardContainer variant="default" size="default" className="!p-0 overflow-hidden">
         <div style={{
-          padding: "16px 20px", borderBottom: "1px solid var(--border)",
-          background: "var(--surface-raised)", display: "flex", alignItems: "flex-start", gap: 10,
+          padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", gap: 10,
         }}>
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -522,7 +521,7 @@ export function AdminSecurityScreen({ onNavigate }: { onNavigate?: (id: string) 
 
           {/* Quick stats */}
           <div style={{ border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)", overflow: "hidden" }}>
-            <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", background: "var(--surface-raised)" }}>
+            <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>Policy summary</div>
             </div>
             <div style={{ padding: "0 18px" }}>

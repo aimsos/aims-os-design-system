@@ -389,11 +389,14 @@ export function ChartsWidgetContent() {
   )
 }
 
-const TABLE_ROWS = [
-  { name: "Alice Johnson", status: "Active",   statusColor: "var(--color-surface-success-default)", value: "$12,400" },
-  { name: "Bob Smith",     status: "Inactive", statusColor: "var(--field-supporting)",              value: "$8,200"  },
-  { name: "Carol Davis",   status: "Pending",  statusColor: "var(--color-surface-alert-default)",   value: "$5,600"  },
-  { name: "Dave Wilson",   status: "Active",   statusColor: "var(--color-surface-success-default)", value: "$9,100"  },
+// A status is a Tag, and the variant carries the meaning — a hand-drawn dot in
+// a raw token colour said "green" without saying "success", and it was the only
+// status in the product that did not look like every other status.
+const TABLE_ROWS: { name: string; status: string; statusVariant: "success" | "neutral" | "alert"; value: string }[] = [
+  { name: "Alice Johnson", status: "Active",   statusVariant: "success", value: "$12,400" },
+  { name: "Bob Smith",     status: "Inactive", statusVariant: "neutral", value: "$8,200"  },
+  { name: "Carol Davis",   status: "Pending",  statusVariant: "alert",   value: "$5,600"  },
+  { name: "Dave Wilson",   status: "Active",   statusVariant: "success", value: "$9,100"  },
 ]
 
 export function TableWidgetContent() {
@@ -412,10 +415,7 @@ export function TableWidgetContent() {
             <tr key={i} style={{ borderBottom: "0.5px solid var(--field-border)" }}>
               <td style={{ padding: "7px 8px", fontSize: 12, color: "var(--foreground)" }}>{row.name}</td>
               <td style={{ padding: "7px 8px" }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: row.statusColor, flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, color: "var(--field-supporting)" }}>{row.status}</span>
-                </span>
+                <Tag variant={row.statusVariant} size="sm">{row.status}</Tag>
               </td>
               <td style={{ padding: "7px 8px", fontSize: 12, color: "var(--foreground)", fontWeight: 600 }}>{row.value}</td>
             </tr>

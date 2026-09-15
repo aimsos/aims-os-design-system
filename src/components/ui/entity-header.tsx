@@ -1,6 +1,7 @@
-import { useState, useRef, useLayoutEffect, type KeyboardEvent } from "react"
+import { useState, useRef, useEffect, useLayoutEffect, type KeyboardEvent, type ReactNode } from "react"
 import { Sparkle, MoreHorizontal, Lock, EyeOff, Info, Database, type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { usePageScroll, type PageScrollInfo } from "@/lib/page-scroll"
 import { AvatarCircle } from "@/components/ui/avatar"
 import { CardContainer } from "@/components/ui/card-container"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -15,9 +16,14 @@ import { HighlightIcon, type HighlightIconVariant } from "@/components/ui/highli
  *
  * Source of truth: Figma `Design System - AIMS OS`, node 19815:101548. Every
  * rule below is from that section — the Anatomy, Rules, Hierarchy, Focus
- * order, TAG ROLES, TRUNCATION, THE THREE ACTIONS and BEHAVIOUR blocks. The
- * file name stays `record-header.tsx` on purpose: the change spec forbids
- * renaming it.
+ * order, TAG ROLES, TRUNCATION, THE THREE ACTIONS and BEHAVIOUR blocks.
+ *
+ * Renamed from `record-header.tsx` on 2026-09-08. The change spec had frozen
+ * the old file name while the API was still moving; with the component
+ * settled, Michael's call is that it is called Entity Header everywhere —
+ * file, exports and page id. The old page id still resolves, see
+ * PAGE_ID_ALIASES in App.tsx: links to `?page=record-header` were shared
+ * before the rename and must not break.
  *
  * WHAT IT IS
  *
@@ -52,9 +58,10 @@ import { HighlightIcon, type HighlightIconVariant } from "@/components/ui/highli
  *
  * NINE TAB STOPS, SIX WHEN NOTHING IS TRUNCATED. Tags and secondary metadata
  * are each ONE stop, not one per item: Tab enters the group, arrows move
- * inside it, Tab leaves. Six tags plus six metadata items as individual stops
- * would put twenty-five Tab presses between a keyboard user and the page,
- * which is a barrier, not an inconvenience. The title and the description are
+ * inside it, Tab leaves. One stop per item would put a dozen and a half Tab
+ * presses between a keyboard user and the page, which is a barrier, not an
+ * inconvenience. Since the tag cap came down to two, the six-item metadata
+ * row carries most of that argument on its own. The title and the description are
  * stops only when they actually overflow — a value that fits has nothing to
  * reveal.
  *
@@ -234,11 +241,11 @@ export interface AssignedAgent {
 }
 
 // ── Record action (Identity row CTA + overflow) ─────────────────────────────
-export type RecordActionVariant = "primary" | "secondary" | "tertiary"
+export type EntityHeaderActionVariant = "primary" | "secondary" | "tertiary"
 
-export interface RecordAction {
+export interface EntityHeaderAction {
   label: string
-  variant?: RecordActionVariant
+  variant?: EntityHeaderActionVariant
   onClick?: () => void
   /**
    * Explicit disabled override, independent from `locked` — e.g. "no
@@ -323,24 +330,80 @@ export interface EntityHeaderTag {
    * none of them breaks the visual system, because none of them picks a
    * colour.
    *
-   * There can be six of these. If each picked its own semantic colour, a
-   * healthy header would light up in three shades and colour would stop
-   * meaning anything.
+   * Only two of these are ever visible at once. If each picked its own
+   * semantic colour, a healthy header would light up in three shades and
+   * colour would stop meaning anything.
    */
   tone?: "error" | "alert"
   icon?: LucideIcon
 }
 
 /**
- * Six visible, then a `+N` chip. Enforced here rather than by trusting the
- * caller, same as `secondaryMetadata`.
+ * A CEILING, NOT A COUNT. Three visible at the very most, and fewer whenever
+ * the row is tight — `useTagFit` measures what actually fits and the rest go
+ * to the `+N` chip. Enforced here rather than by trusting the caller, same as
+ * `secondaryMetadata`.
  *
  * Tags are the flexible element on the row: show fewer tags and a larger `+N`
  * rather than truncating the title further. The identifier is what the user
  * came to read — a tag can be recovered from the overflow, a cut-off name
  * cannot.
+ *
+ * IT WAS SIX, THEN A FLAT TWO, BEFORE LANDING HERE (Michael, 2026-09-09).
+ * Six was wrong: chips hold their width, so a dense header spent it on tags
+ * and truncated the NAME — the exact inversion of the rule above, and the
+ * thing Figma's DO/DON'T frame warns against. Six also saturates the card,
+ * wrapping the row into a block of colour rather than individual signals.
+ *
+ * A flat two fixed the title but was wrong in the other direction: it hid a
+ * tag that had room to show. Figma has no fixed number at all — its edge
+ * cases render three, two and two, because it collapses by available space.
+ * The count is an OUTPUT of the layout, not an input to it.
+ *
+ * Three is the ceiling because that is the most Figma ever shows, and because
+ * past three the chips stop reading as separate signals.
  */
-export const ENTITY_HEADER_TAGS_MAX = 6
+export const ENTITY_HEADER_TAGS_MAX = 3
+
+/** Gap between chips inside the tag group — must match the rendered `gap-[6px]`. */
+const TAG_CHIP_GAP = 6
+/** Gap between title, source and the tag group — must match `gap-[12px]`. */
+const IDENTITY_GAP = 12
+/** The title's own ceiling, from Figma's truncation block. */
+const TITLE_CEILING = 540
+/** The 1px rule between source and tags, plus the 12px gap it adds. */
+const SOURCE_DIVIDER = 1 + IDENTITY_GAP
+/**
+ * A pixel of slack. Chip widths are sub-pixel and `offsetWidth` rounds, so a
+ * set that measures as exactly filling the row can still wrap. Losing one
+ * pixel of budget is cheaper than a chip dropping to a second line.
+ */
+const FIT_SLACK = 2
+
+/**
+ * Which tags are visible at a given count — the ONE place that decides it, so
+ * the measuring pass and the render can never disagree.
+ *
+ * `ordered` is already sorted signals-first-by-severity, then classification.
+ * The rule on top of that: THE CLASSIFICATION KEEPS THE LAST VISIBLE SLOT.
+ * Read off Figma's instances, which never let signals take every slot — its
+ * maximum-content card shows one signal, `Partner` and a `+6`. Without it,
+ * severity ordering would hide the classification on any entity with two or
+ * more signals, and the visible tags would answer "what needs attention"
+ * twice while leaving "what kind of thing is this" to nothing.
+ *
+ * A signal always takes the FIRST slot, so nothing outranks the most severe
+ * thing on the card.
+ */
+function pickTagIndices(ordered: EntityHeaderTag[], count: number): number[] {
+  const take = Math.min(Math.max(count, 0), ordered.length)
+  if (take === 0) return []
+  const head = Array.from({ length: take }, (_, i) => i)
+  if (take < 2) return head
+  const classIdx = ordered.findIndex(t => t.role === "classification")
+  if (classIdx < 0 || classIdx < take) return head
+  return [...head.slice(0, take - 1), classIdx]
+}
 
 // ── State badge — its own slot, on the right ──────────────────────────────
 // COLOUR, RULE 1 OF 2 — full semantic range. There is exactly one, so colour
@@ -388,6 +451,37 @@ export interface SecondaryMetadataItem {
   text: string
   /** Field label + context. Required: the tooltip shows even when `text` is not truncated. */
   tooltip: string
+  /**
+   * Makes this one item actionable — Michael, 2026-09-11.
+   *
+   * MOST METADATA IS NOT. This row is display-only by definition, and that is
+   * still the default: pass nothing and the item renders exactly as before.
+   * `onClick` is for the few values that NAME A CHANNEL rather than describe
+   * the entity — an email address, a phone number. Those are not facts you
+   * read, they are the thing you were about to go and use, and the row is
+   * where the reader already is.
+   *
+   * A COUNT IS NEVER ACTIONABLE. "10 facts" is a number about this record;
+   * clicking it has no obvious meaning, so inventing one makes every item in
+   * the row ambiguous. If you cannot say in three words what the click does,
+   * it does not get an `onClick`.
+   *
+   * WHAT IT MUST NOT DO: send anything. An actionable metadata item opens the
+   * surface where the action is composed and governed — the record's agent
+   * panel. The agent executes, the human governs; a row that fires an email
+   * on one click has skipped the half that matters.
+   *
+   * The item renders as a real `<button>` with the DS Link type style — and
+   * the UNDERLINE ONLY, never the link's blue. Blue in this row would read as
+   * a state, competing with the state badge and the signal tags two rows up,
+   * and it would make one metadata item louder than the record's own status.
+   * The underline is enough to say "this responds"; the colour stays the same
+   * as its neighbours, which is what keeps the row a row.
+   *
+   * Say what the click does in `tooltip`, not just what the value is: the
+   * tooltip is the only place a reader can find out before committing.
+   */
+  onClick?: () => void
 }
 
 /**
@@ -414,7 +508,9 @@ export interface EntityHeaderProps {
   /**
    * Signal and classification tags, in one array. The component sorts them —
    * signals first, coloured before uncoloured, then classification — and caps
-   * the visible set at ENTITY_HEADER_TAGS_MAX with a `+N` chip for the rest.
+   * the visible set at ENTITY_HEADER_TAGS_MAX (two) with a `+N` chip for the
+   * rest. Pass as many as the entity has — the cap is the component's job,
+   * and the hidden ones stay reachable from the chip's Tooltip.
    *
    * Omit or pass an empty array for a record with no signals and no
    * classification: the group is REMOVED, not left empty.
@@ -484,7 +580,7 @@ export interface EntityHeaderProps {
    * `actions[0]` — "Message", "Export", "Contact account" — is gone. Anything
    * that is not this one secondary action belongs in `menuActions`.
    */
-  secondaryAction?: RecordAction
+  secondaryAction?: EntityHeaderAction
   /**
    * The "···" overflow. Destructive and secondary actions ONLY — never a
    * visible button.
@@ -493,7 +589,7 @@ export interface EntityHeaderProps {
    * entity in Helix Data Studio. The header owns exactly one rule: destructive
    * actions live here.
    */
-  menuActions?: RecordAction[]
+  menuActions?: EntityHeaderAction[]
   /**
    * Shows the Information (ⓘ) trigger. A boolean the caller owns, NOT derived
    * from whether `recordFields` has anything in it — whether the panel is
@@ -547,11 +643,31 @@ export interface EntityHeaderProps {
    * same idea applied to one field instead of the whole card.
    */
   state?: EntityHeaderState
+  /**
+   * Sticks the card to the top of its scroll container and COMPRESSES it as
+   * the reader scrolls down: the `secondaryMetadata` row and the
+   * `description` drop, and the visual goes down one size (L to M). Scrolling
+   * back up restores all three, at once, without waiting for the top.
+   *
+   * OFF BY DEFAULT, and it is one prop rather than two on purpose. Sticky and
+   * compressed are inseparable — compressing a card that scrolls out of view
+   * anyway does nothing — so binding them removes the broken half-state where
+   * a caller wires one and forgets the other.
+   *
+   * WHERE IT BELONGS: a record page whose content scrolls under the header —
+   * a detail view's Overview tab. Not in a SlideOut, a modal or a widget,
+   * where there is no long scroll to reclaim room from.
+   *
+   * WHAT IT NEVER TOUCHES: the name, the visual, the source, the tags, the
+   * state badge and the whole right-hand cluster. Compressed is still a
+   * complete identity; it is the second row that goes, never the first.
+   */
+  compressOnScroll?: boolean
   className?: string
 }
 
 // ── Centralized fallback copy (configurable/centralized, never scattered inline in JSX) ──
-export const RECORD_HEADER_FALLBACKS = {
+export const ENTITY_HEADER_FALLBACKS = {
   /** Tooltip on the agent trigger when assignedAgent is null. */
   noAgentTooltip: "No agent assigned to this record",
   /** Tooltip on Ask. The button's label is one word; this carries the rest. */
@@ -623,10 +739,11 @@ const DROP_METADATA_WIDTH = 320
 
 // ── Focus groups (Figma's FOCUS AND KEYBOARD frame) ────────────────────────
 // Nine tab stops, six when nothing is truncated. The reason it is nine and
-// not twenty-five is Figma's own: with six tags and six metadata items, one
-// stop per item means a keyboard user presses Tab twenty-five times to get
-// past the header and reach the page. That is not an inconvenience, it is a
-// barrier.
+// not eighteen is Figma's own: one stop per item means a keyboard user tabs
+// through every tag and every metadata item to get past the header and reach
+// the page. That is not an inconvenience, it is a barrier. The metadata row
+// is the heavier half of this now — it still holds six items, where the tag
+// group holds two plus the overflow chip.
 //
 // So tags and secondary metadata are each ONE stop: Tab enters the group,
 // arrow keys move inside it, Tab leaves it. This is the WAI-ARIA composite
@@ -685,6 +802,298 @@ function useIsTruncated<T extends HTMLElement>() {
     return () => ro.disconnect()
   })
   return { ref, truncated }
+}
+
+/**
+ * HOW MANY TAGS THE ROW ACTUALLY HAS ROOM FOR.
+ *
+ * `ENTITY_HEADER_TAGS_MAX` is a CEILING, not a count — three at the very most,
+ * fewer whenever the row is tight. This is the rule Figma's own cards follow:
+ * its edge cases show three, two and two visible tags, because it collapses by
+ * available space. A fixed number cannot do that. It either wastes room on a
+ * card with a short name, or — the version this component shipped with — lets
+ * the chips hold their width until the TITLE is what truncates, which is the
+ * exact inversion of the documented order and the thing Figma's DO/DON'T frame
+ * warns against.
+ *
+ * ARITHMETIC, NOT SHRINK-AND-SEE. The obvious implementation — render, check
+ * for overflow, drop one, re-render — oscillates: removing a chip gives the
+ * title room to grow, which takes the room back. So the budget is computed
+ * from parts that do NOT depend on how many tags are showing:
+ *
+ *   budget = row width − the title at its natural width (capped) − the source
+ *            − the `Locked`/`Restricted` tags − the gaps between them
+ *
+ * The title is measured at its NATURAL width via `scrollWidth`, which reports
+ * the full string even while the ellipsis is on screen. That is what puts the
+ * tags first in the yielding order: they are fitted into what is left AFTER
+ * the title has been given everything it wants, up to its 540px ceiling.
+ *
+ * Chip widths come from a hidden probe row that renders every candidate at
+ * full size. Measuring the visible chips instead would only ever tell us about
+ * the ones already on screen, which is the wrong question.
+ *
+ * Reaching zero visible tags is a legitimate outcome, not a failure: at that
+ * width the honest thing is one `+N` chip carrying all of them, rather than a
+ * truncated name beside a tag that fits.
+ */
+function useTagFit(opts: {
+  rowRef: React.RefObject<HTMLElement | null>
+  probeRef: React.RefObject<HTMLElement | null>
+  titleRef: React.RefObject<HTMLElement | null>
+  sourceRef: React.RefObject<HTMLElement | null>
+  /** Already sorted — signals by severity, then classification. */
+  tags: EntityHeaderTag[]
+  stacked: boolean
+  /** Serialised tags + title + source: anything whose change moves a width. */
+  signature: string
+}) {
+  const { rowRef, probeRef, titleRef, sourceRef, tags, stacked, signature } = opts
+  const [fit, setFit] = useState(ENTITY_HEADER_TAGS_MAX)
+
+  // The tag array is rebuilt on every render, so it cannot be a dependency
+  // without re-running the effect forever. `signature` is the dependency;
+  // this ref is how the effect reads the current values.
+  const tagsRef = useRef(tags)
+  tagsRef.current = tags
+
+  useLayoutEffect(() => {
+    const row = rowRef.current
+    const probe = probeRef.current
+    const count = tagsRef.current.length
+    if (!row || !probe || count === 0) return
+
+    const measure = () => {
+      const probes = Array.from(probe.children) as HTMLElement[]
+      if (probes.length < count + 1) return
+
+      const chipW = probes.slice(0, count).map(el => el.offsetWidth)
+      const plusW = probes[count].offsetWidth
+      // Whatever follows the `+N` probe is a state tag (`Locked`,
+      // `Restricted`) — always on screen, so it comes off the budget.
+      const stateW = probes
+        .slice(count + 1)
+        .reduce((sum, el) => sum + el.offsetWidth + TAG_CHIP_GAP, 0)
+
+      const titleW = Math.min(titleRef.current?.scrollWidth ?? 0, TITLE_CEILING)
+      const sourceW = sourceRef.current?.offsetWidth ?? 0
+
+      // Everything between the row's edge and the first chip. The source
+      // costs its own width, the gap before it, and — because a rule is drawn
+      // between source and tags — the divider plus a second gap.
+      // Stacked: the title has its own row, so it costs the tags nothing.
+      let budget = row.clientWidth - stateW - FIT_SLACK
+      if (sourceW) budget -= sourceW + IDENTITY_GAP + SOURCE_DIVIDER
+      if (!stacked) budget -= titleW + IDENTITY_GAP
+
+      let best = 0
+      for (let k = Math.min(ENTITY_HEADER_TAGS_MAX, count); k >= 1; k--) {
+        // Same function the render uses, so the chips measured are exactly the
+        // chips that will appear — including the promoted classification,
+        // which is not always among the first k.
+        const idx = pickTagIndices(tagsRef.current, k)
+        const needed =
+          idx.reduce((sum, i) => sum + (chipW[i] ?? 0), 0) +
+          TAG_CHIP_GAP * (idx.length - 1) +
+          (count > idx.length ? plusW + TAG_CHIP_GAP : 0)
+        if (needed <= budget) { best = k; break }
+      }
+      // FLOOR OF ONE — but only in the stacked layout. A bare `+2` with no
+      // chip beside it communicates nothing: the reader has to hover a
+      // counter to learn there is anything to know. So when the row is too
+      // tight for even one chip, show one anyway and let the group wrap.
+      //
+      // Not in the wide layout, and that restriction is the whole point. There
+      // the tag group shares a row with the title, so forcing a chip in is
+      // paid for by the name — the exact trade the yielding order forbids.
+      // Stacked, source and tags have a row to themselves, so a wrap costs
+      // nothing but a few pixels of height.
+      if (best === 0 && stacked) best = 1
+
+      setFit(prev => (prev === best ? prev : best))
+    }
+
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(row)
+    return () => ro.disconnect()
+  }, [rowRef, probeRef, titleRef, sourceRef, stacked, signature])
+
+  return tags.length === 0 ? 0 : fit
+}
+
+/**
+ * COMPRESS ON SCROLL DOWN, RESTORE ON SCROLL UP (Michael, 2026-09-09).
+ *
+ * By the time someone scrolls a record page they have finished reading the
+ * header; keeping its full height spends the screen on what they are done
+ * with. So the second row goes, the visual drops one size, and everything
+ * that identifies the entity stays.
+ *
+ * SCROLL DIRECTION, NEVER HOVER. Hover was in the original sketch and is
+ * deliberately not here: a header that grows when the cursor passes over it
+ * fires by accident and pushes down the content the reader is in the middle
+ * of, and hover exists neither on a tablet nor for a keyboard. Direction is
+ * also the signal `ScreenLayout` already computes for the page `Header`'s own
+ * compress, so the two agree rather than competing.
+ *
+ * BACK AT THE TOP IS ALWAYS FULL. Never leave a reader who has returned to
+ * the top of a record looking at a reduced header — at rest the card is
+ * whole, and that is the state the page opens in.
+ *
+ * THRESHOLD, not raw direction: a few pixels of jitter (a trackpad settling,
+ * a focus scroll) must not flip the card. `SCROLL_EPSILON` is what makes it a
+ * deliberate gesture rather than a twitch.
+ *
+ * AND THE CARD MUST NOT REACT TO ITS OWN HEIGHT. Compressing removes a row,
+ * which shortens the page, which lowers the container's maximum scroll. A
+ * reader sitting near the bottom is then CLAMPED upward by the browser — and
+ * a naive direction check reads that clamp as "scrolling up", expands the
+ * card, which lengthens the page again, which lets them scroll down, which
+ * compresses it… The card flickers, and it flickers exactly where a reader
+ * has stopped to read. Michael hit this one on the Universal Profile.
+ *
+ * Two guards, because one is not enough:
+ *
+ *   `atBottom`     pinned against the end of the scroll, a decrease is
+ *                  geometry rather than intent, so it is ignored. One pixel
+ *                  away from the end it is a real gesture again.
+ *   `TOGGLE_LOCK`  and because the reflow may not have happened yet when the
+ *                  event arrives, `atBottom` can read the OLD geometry and
+ *                  wave the clamp through. So a toggle also buys a short
+ *                  silence: for 180ms after the card changes, scroll only
+ *                  updates the baseline. Every spurious event is a
+ *                  consequence of our own change, and every one of them
+ *                  lands inside that window. A real gesture outlasts it.
+ *
+ * WHERE THE POSITION COMES FROM — decided, not guessed (2026-09-10).
+ * `ScreenLayout` publishes the scroll position of the container it created,
+ * and this hook subscribes to it. Nothing else on the page can know which
+ * element scrolls with certainty, and two earlier attempts to work it out
+ * from here both failed on a real screen:
+ *
+ *   walking up to find a scrolling ancestor  resolves once, before the
+ *     content has height, so it answers "none" and never revises
+ *   listening to every scroller in the document  a screen holds many — the
+ *     sidebar, a canvas widget's body, a side panel — and the ones parked at
+ *     zero keep overwriting the one that moved, so the card never stays
+ *     compressed. This is what Michael saw in UCP.
+ *
+ * The fallback for a card outside any `ScreenLayout` is still the document
+ * capture listener, and it is sound there for the reason it was unsound in
+ * UCP: a DS documentation page is one stage with one scroller.
+ */
+const SCROLL_TOP_ZONE = 16
+const SCROLL_EPSILON = 4
+
+const TOGGLE_LOCK = 180
+
+/**
+ * Does this card sit inside something that scrolls?
+ *
+ * Asks about the OVERFLOW STYLE only, deliberately — never about
+ * `scrollHeight > clientHeight`. Content height is not settled when the
+ * effect first runs, so a height-based test answers "no" on a container that
+ * is about to scroll, and answers it permanently. Overflow style is set by
+ * the layout and is stable from the first paint.
+ *
+ * `false` means the HOST has pinned this card: `ScreenLayout` renders its
+ * header zone outside the scroll container, and a caller may put the
+ * EntityHeader there instead of in the content. Thom's UCP profile does
+ * exactly that. Such a card is already always-visible, so it needs no sticky
+ * of its own — but it still has to hear the page scroll to compress.
+ */
+function hasScrollableAncestor(el: HTMLElement | null): boolean {
+  let node = el?.parentElement ?? null
+  while (node) {
+    const { overflowY } = getComputedStyle(node)
+    if (overflowY === "auto" || overflowY === "scroll") return true
+    node = node.parentElement
+  }
+  return false
+}
+
+function useCompressOnScroll(enabled: boolean, ref: React.RefObject<HTMLElement | null>) {
+  const [compressed, setCompressed] = useState(false)
+  const lastY = useRef(0)
+  // Mirrors `compressed` so the listener can read the current value without
+  // being re-created on every toggle — and so the lock is armed exactly when
+  // the value really changes.
+  const isCompressed = useRef(false)
+  const lockUntil = useRef(0)
+
+  // WHERE THE POSITION COMES FROM. `ScreenLayout` publishes the scroll
+  // position of the element it created, so inside one there is nothing to
+  // work out. Outside one — the DS documentation pages — this is null and
+  // the fallback below applies.
+  const pageScroll = usePageScroll()
+
+  useEffect(() => {
+    if (!enabled) { setCompressed(false); isCompressed.current = false; return }
+    lockUntil.current = 0
+
+    // Everything below decides ONE thing: given a new scroll position, should
+    // the card be compressed? Both sources feed this, so the rules — the top
+    // zone, the threshold, the clamp guards — are written once.
+    const apply = (y: number, maxY: number) => {
+      const now = performance.now()
+
+      // Inside the lock the card holds still and only re-baselines, so the
+      // reflow our own toggle caused cannot bounce it back.
+      if (now < lockUntil.current) { lastY.current = y; return }
+
+      const atBottom = y >= maxY - 1
+      const last = lastY.current
+      let next = isCompressed.current
+      if (y <= SCROLL_TOP_ZONE) next = false
+      else if (y > last + SCROLL_EPSILON) next = true
+      else if (y < last - SCROLL_EPSILON && !atBottom) next = false
+
+      if (next !== isCompressed.current) {
+        isCompressed.current = next
+        lockUntil.current = now + TOGGLE_LOCK
+        setCompressed(next)
+      }
+      lastY.current = y
+    }
+
+    // ── The layout told us. Nothing to guess. ──────────────────────────────
+    if (pageScroll) {
+      lastY.current = pageScroll.read().top
+      return pageScroll.subscribe((info: PageScrollInfo) => apply(info.top, info.max))
+    }
+
+    // ── FALLBACK, for a card that is not inside a ScreenLayout ─────────────
+    // One document-level capturing listener, because scroll does not bubble
+    // but does capture. `contains` keeps it to the container the card sits
+    // in; a card pinned outside every scroller takes whatever the page gives
+    // it, which is only safe here because a page with no ScreenLayout is a
+    // single stage with a single scroller. That assumption is exactly what
+    // broke on a real screen, and exactly why ScreenLayout now decides.
+    lastY.current = 0
+    const pinned = !hasScrollableAncestor(ref.current)
+
+    const onScroll = (e: Event) => {
+      const el = ref.current
+      if (!el) return
+
+      const target = e.target
+      const isDocument = target === document || target === document.documentElement || target === document.body
+      const isOurs = isDocument || pinned || (target instanceof HTMLElement && target.contains(el))
+      if (!isOurs) return
+
+      const y = isDocument ? window.scrollY : (target as HTMLElement).scrollTop
+      const maxY = isDocument
+        ? document.documentElement.scrollHeight - window.innerHeight
+        : (target as HTMLElement).scrollHeight - (target as HTMLElement).clientHeight
+      apply(y, maxY)
+    }
+
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true })
+    return () => document.removeEventListener("scroll", onScroll, { capture: true })
+  }, [enabled, ref, pageScroll])
+
+  return compressed
 }
 
 // ── Loading skeleton ────────────────────────────────────────────────────────
@@ -771,6 +1180,7 @@ function EntityHeader({
   onInformationOpen,
   locked = false,
   state = "default",
+  compressOnScroll = false,
   className,
 }: EntityHeaderProps) {
 
@@ -786,8 +1196,6 @@ function EntityHeader({
       if (a.role !== b.role) return a.role === "signal" ? -1 : 1
       return TONE_RANK[a.tone ?? "none"] - TONE_RANK[b.tone ?? "none"]
     })
-  const visibleTags = orderedTags.slice(0, ENTITY_HEADER_TAGS_MAX)
-  const hiddenTags = orderedTags.slice(ENTITY_HEADER_TAGS_MAX)
 
   // Capped here rather than by trusting the caller — same reasoning as the
   // identity tags cap. Six is the maximum; the overflow goes to the Overview,
@@ -822,7 +1230,6 @@ function EntityHeader({
   // they sit in the same visual slot, so they are items in the same group
   // rather than extra tab stops.
   const stateTagCount = (locked ? 1 : 0) + (state === "restricted" ? 1 : 0)
-  const tagGroup  = useRovingIndex(visibleTags.length + (hiddenTags.length > 0 ? 1 : 0) + stateTagCount)
   const metaGroup = useRovingIndex(visibleMetadata.length)
   // Stops 1 and 8 — only when the value actually overflows.
   const titleTrunc = useIsTruncated<HTMLSpanElement>()
@@ -869,6 +1276,97 @@ function EntityHeader({
     return () => ro.disconnect()
   }, [])
 
+  /**
+   * THE STICKY WRAPPER, and why it is frosted rather than painted.
+   *
+   * `--card-default-bg` is a 5% white: the card's surface is TRANSLUCENT by
+   * design and only reads correctly because the page ground shows through it.
+   * That makes a sticky card awkward twice over.
+   *
+   * Stick it with nothing behind it and the content scrolling underneath
+   * shows straight through — the first build did exactly that.
+   *
+   * Paint an opaque `var(--canvas)` behind it and the bleed-through goes, but
+   * so does the ground: `AppBackground` lays a radial gradient over the flat
+   * canvas, so a flat fill puts the card on a DIFFERENT ground from every
+   * other card on the page, and it reads as a different grey. Michael caught
+   * that one on sight (2026-09-09).
+   *
+   * `backdrop-filter` is what satisfies both. Nothing is painted, so the
+   * gradient still reaches the card and the tone is unchanged — blurring a
+   * smooth gradient is visually a no-op. What the blur destroys is the one
+   * thing that must not show: the text and edges of the content passing
+   * underneath.
+   *
+   * `top-0` is the top of the SCROLL CONTAINER, not the viewport. In
+   * `ScreenLayout` the page `Header` lives outside that container, so the two
+   * never overlap — they stack.
+   */
+  // Nothing to stick when the host has already pinned the card outside the
+  // scroll area — wrapping it then would add a sticky that never engages and
+  // a backdrop-filter over nothing.
+  const stick = (node: ReactNode) =>
+    compressOnScroll && !hostPinned
+      ? (
+          <div
+            className="sticky top-0 z-[2]"
+            style={{ backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)" }}
+          >
+            {node}
+          </div>
+        )
+      : <>{node}</>
+
+  // Compress on scroll — see useCompressOnScroll. `rootRef` is what locates
+  // the scroll container, so this has to sit after the reflow block that
+  // declares it.
+  const compressed = useCompressOnScroll(compressOnScroll, rootRef)
+  // Mirrors the hook's own test, for the sticky wrapper below. Measured after
+  // mount, so the first paint wraps and a later one may not — harmless,
+  // because the wrapper is invisible until something scrolls under it.
+  const [hostPinned, setHostPinned] = useState(false)
+  useLayoutEffect(() => {
+    if (!compressOnScroll) return
+    setHostPinned(!hasScrollableAncestor(rootRef.current))
+  }, [compressOnScroll])
+
+  // Everything the fit has to measure around.
+  const fitRowRef  = useRef<HTMLDivElement>(null)
+  const probeRef   = useRef<HTMLDivElement>(null)
+  const sourceRef  = useRef<HTMLSpanElement>(null)
+
+  // Re-measure whenever a rendered width could have moved. Chip labels and
+  // tones change chip widths; the name and the source change what is left for
+  // them; the state tags take room out of the same row.
+  const fitSignature = [
+    orderedTags.map(t => `${t.role}:${t.tone ?? "none"}:${t.label}`).join("|"),
+    name,
+    source ?? "",
+    locked ? "locked" : "",
+    state,
+  ].join("§")
+
+  const tagFit = useTagFit({
+    rowRef: fitRowRef,
+    probeRef,
+    titleRef: titleTrunc.ref,
+    sourceRef,
+    tags: orderedTags,
+    stacked,
+    signature: fitSignature,
+  })
+
+  // HOW MANY TAGS FIT — measured, not assumed. `tagFit` is the count the row
+  // actually has room for; `pickTagIndices` turns it into which ones. See
+  // useTagFit for the arithmetic and why it is arithmetic rather than a
+  // shrink-and-see loop.
+  const visibleIdx = pickTagIndices(orderedTags, tagFit)
+  const visibleSet = new Set(visibleIdx)
+  const visibleTags = visibleIdx.map(i => orderedTags[i])
+  const hiddenTags = orderedTags.filter((_, i) => !visibleSet.has(i))
+
+  const tagGroup  = useRovingIndex(visibleTags.length + (hiddenTags.length > 0 ? 1 : 0) + stateTagCount)
+
   // ── Loading ─────────────────────────────────────────────────────────────
   // Returns early, but INSIDE the same CardContainer and with the same
   // `rootRef`, so the measurement that decides `stacked` keeps running and
@@ -876,7 +1374,7 @@ function EntityHeader({
   // whose shape does not match what replaces it is worse than none: the
   // content appears to jump.
   if (state === "loading") {
-    return (
+    return stick(
       <CardContainer size="default" variant="default" className={cn("w-full", className)}>
         <div
           ref={rootRef}
@@ -891,7 +1389,7 @@ function EntityHeader({
     )
   }
 
-  return (
+  return stick(
     <CardContainer size="default" variant="default" className={cn("w-full", className)}>
       {/* Restricted — the card at 50% opacity, which is what Figma's own
           Restricted variant is, PLUS a `Restricted` Tag beside the title
@@ -900,7 +1398,41 @@ function EntityHeader({
           to be "calm and explanatory" and its instance carries nothing
           explanatory at all — opacity alone cannot be told apart from
           loading or failed. Neutral, never error: it is a governed state. */}
-      <div ref={rootRef} className={cn("flex flex-col gap-[16px]", state === "restricted" && "opacity-50")}>
+      <div ref={rootRef} className={cn("relative flex flex-col gap-[16px]", state === "restricted" && "opacity-50")}>
+
+        {/* MEASURING PROBE — every candidate chip at full size, plus a `+N`
+            and whichever state tags are on. Invisible, out of the layout and
+            out of the accessibility tree; it exists only so useTagFit can ask
+            "how wide would this chip be" about chips that are not on screen.
+            Order matters and is the contract with the hook: tags in
+            `orderedTags` order, then `+N`, then the state tags. */}
+        <div
+          ref={probeRef}
+          aria-hidden="true"
+          className="pointer-events-none invisible absolute left-0 top-0 flex items-center gap-[6px] whitespace-nowrap"
+        >
+          {orderedTags.map((t, i) => (
+            <Tag
+              key={`probe-${t.role}-${t.label}-${i}`}
+              variant={t.tone ?? "neutral"}
+              size="sm"
+              leadingIcon={t.icon ? <t.icon size={12} strokeWidth={1.75} /> : undefined}
+            >
+              {t.label}
+            </Tag>
+          ))}
+          <Tag variant="neutral" size="sm">{`+${orderedTags.length}`}</Tag>
+          {locked && (
+            <Tag variant="secondary" size="sm" leadingIcon={<Lock size={12} strokeWidth={1.75} />}>
+              {ENTITY_HEADER_FALLBACKS.lockedTagLabel}
+            </Tag>
+          )}
+          {state === "restricted" && (
+            <Tag variant="secondary" size="sm" leadingIcon={<EyeOff size={12} strokeWidth={1.75} />}>
+              {ENTITY_HEADER_FALLBACKS.restrictedTagLabel}
+            </Tag>
+          )}
+        </div>
 
         {/* ── Identity row — visual · (title · source · tags) · right cluster.
             Cross-axis alignment follows the layout: centered while the left
@@ -911,11 +1443,16 @@ function EntityHeader({
           {/* Visual identity — exactly one, never both. Avatar for people and
               brands, highlight icon for everything else. Decorative to the
               keyboard (never a focus stop), named to the screen reader. */}
+          {/* One size down when compressed — L to M, which is 32px to 24px
+              for an avatar and 40px to 32px for a highlight icon. The visual
+              is never DROPPED (it is half of how an entity is recognised at a
+              glance), but at a glance is all it has to do once the reader has
+              scrolled past, so it gives the row back some width. */}
           {safeVisual.kind === "avatar" ? (
-            <AvatarCircle name={name} sizeKey="lg" avatarStyle={hasName ? "text" : "empty"} />
+            <AvatarCircle name={name} sizeKey={compressed ? "md" : "lg"} avatarStyle={hasName ? "text" : "empty"} />
           ) : (
             <HighlightIcon
-              size="lg"
+              size={compressed ? "md" : "lg"}
               variant={safeVisual.variant ?? "neutral"}
               icon={<safeVisual.icon size={16} strokeWidth={1.75} />}
               className="shrink-0"
@@ -929,7 +1466,15 @@ function EntityHeader({
                 order either way; only the wrapping changes. Nothing is hidden
                 and nothing is dropped, which is the whole point of reflowing
                 before yielding. */}
-            <div className={cn("flex gap-[12px] min-w-0", stacked ? "flex-col items-start gap-[6px]" : "items-center")}>
+            {/* THE ROW THE TAG BUDGET IS MEASURED AGAINST. Its width is set
+                by the card, not by its children — the visual and the right
+                cluster are siblings of the column this sits in — so it is a
+                stable thing to divide up, and dropping a tag cannot change
+                it. That is what keeps the fit from oscillating. */}
+            <div
+              ref={fitRowRef}
+              className={cn("flex gap-[12px] min-w-0", stacked ? "flex-col items-start gap-[6px]" : "items-center")}
+            >
               {/* Identity group — title (+ `Locked`). Stays whole in both
                   layouts; in the stacked layout it becomes row 1 on its own. */}
               <div className={cn("flex items-center gap-[12px] min-w-0", stacked && "w-full")}>
@@ -977,7 +1522,7 @@ function EntityHeader({
                       the title moves to its own row — a row must not open on a
                       dangling punctuation mark. */}
                   {source && (
-                    <span className="inline-flex items-center gap-[8px] shrink-0 min-w-0">
+                    <span ref={sourceRef} className="inline-flex items-center gap-[8px] shrink-0 min-w-0">
                       {!stacked && (
                         <span
                           aria-hidden="true"
@@ -1024,8 +1569,10 @@ function EntityHeader({
                       Colour rule: only signals may be error/alert. Classification
                       is always neutral — enforced above, in orderedTags. */}
                   {/* STOP 3 — ONE stop for the whole tag group. Tab enters it,
-                      arrows move inside it, Tab leaves. Six tags as six stops
-                      would put six presses between the reader and the page. */}
+                      arrows move inside it, Tab leaves. The group is small now
+                      (two tags, the overflow chip, and the state tags), but it
+                      stays one stop: the pattern has to hold for the row that
+                      carries all of them at once. */}
                   {(visibleTags.length > 0 || stateTagCount > 0) && (
                     <div
                       ref={tagGroup.ref}
@@ -1071,14 +1618,14 @@ function EntityHeader({
                         </Tooltip>
                       )}
                       {locked && (
-                        <Tooltip content={RECORD_HEADER_FALLBACKS.lockedActionTooltip} side="cursor">
+                        <Tooltip content={ENTITY_HEADER_FALLBACKS.lockedActionTooltip} side="cursor">
                           <span
                             data-roving
                             tabIndex={tagGroup.index === visibleTags.length + (hiddenTags.length > 0 ? 1 : 0) ? 0 : -1}
                             className={cn("inline-flex shrink-0", FOCUS_RING)}
                           >
                             <Tag variant="secondary" size="sm" leadingIcon={<Lock size={12} strokeWidth={1.75} />} className="shrink-0">
-                              {RECORD_HEADER_FALLBACKS.lockedTagLabel}
+                              {ENTITY_HEADER_FALLBACKS.lockedTagLabel}
                             </Tag>
                           </span>
                         </Tooltip>
@@ -1091,14 +1638,14 @@ function EntityHeader({
                           failed. Neutral, never error — the entity exists and
                           is governed, so this is a state and not a failure. */}
                       {state === "restricted" && (
-                        <Tooltip content={RECORD_HEADER_FALLBACKS.restrictedTooltip} side="cursor">
+                        <Tooltip content={ENTITY_HEADER_FALLBACKS.restrictedTooltip} side="cursor">
                           <span
                             data-roving
                             tabIndex={tagGroup.index === visibleTags.length + (hiddenTags.length > 0 ? 1 : 0) + (locked ? 1 : 0) ? 0 : -1}
                             className={cn("inline-flex shrink-0", FOCUS_RING)}
                           >
                             <Tag variant="secondary" size="sm" leadingIcon={<EyeOff size={12} strokeWidth={1.75} />} className="shrink-0">
-                              {RECORD_HEADER_FALLBACKS.restrictedTagLabel}
+                              {ENTITY_HEADER_FALLBACKS.restrictedTagLabel}
                             </Tag>
                           </span>
                         </Tooltip>
@@ -1162,7 +1709,7 @@ function EntityHeader({
             {secondaryAction && (() => {
               const lockDisabled = locked && secondaryAction.disableWhenLocked !== false
               const disabled = lockDisabled || Boolean(secondaryAction.disabled)
-              const tooltip = lockDisabled ? RECORD_HEADER_FALLBACKS.lockedActionTooltip : secondaryAction.disabledTooltip
+              const tooltip = lockDisabled ? ENTITY_HEADER_FALLBACKS.lockedActionTooltip : secondaryAction.disabledTooltip
               const btn = (
                 <Button
                   variant="secondary"
@@ -1194,12 +1741,12 @@ function EntityHeader({
                 needs — the tooltip carries the rest. That is also what makes
                 the width-measuring machinery obsolete: there is no long label
                 left to shorten. */}
-            <Tooltip content={assignedAgent ? RECORD_HEADER_FALLBACKS.askTooltip : RECORD_HEADER_FALLBACKS.noAgentTooltip} side="cursor">
+            <Tooltip content={assignedAgent ? ENTITY_HEADER_FALLBACKS.askTooltip : ENTITY_HEADER_FALLBACKS.noAgentTooltip} side="cursor">
               <Button
                 variant="main"
                 size="sm"
                 icon={<Sparkle size={16} strokeWidth={1.75} />}
-                aria-label={assignedAgent ? RECORD_HEADER_FALLBACKS.askTooltip : RECORD_HEADER_FALLBACKS.noAgentTooltip}
+                aria-label={assignedAgent ? ENTITY_HEADER_FALLBACKS.askTooltip : ENTITY_HEADER_FALLBACKS.noAgentTooltip}
                 disabled={!assignedAgent}
                 onClick={assignedAgent ? assignedAgent.onOpenChat : undefined}
               >
@@ -1215,7 +1762,7 @@ function EntityHeader({
               <ActionOverflowMenu
                 items={menuActions}
                 disabled={locked}
-                disabledTooltip={RECORD_HEADER_FALLBACKS.lockedActionTooltip}
+                disabledTooltip={ENTITY_HEADER_FALLBACKS.lockedActionTooltip}
               />
             )}
 
@@ -1229,7 +1776,7 @@ function EntityHeader({
             carrying the full sentence. Off unless the caller passes one:
             there is no default copy and no placeholder. Text/Body at 14px
             Medium, read from Figma. */}
-        {description && !dropped.description && (
+        {description && !dropped.description && !compressed && (
           <Tooltip content={description} side="cursor" triggerClassName="block min-w-0">
             {/* STOP 8 — and only when truncated, same reasoning as the title.
                 It is elastic, not fixed: one line at container width, with no
@@ -1254,7 +1801,7 @@ function EntityHeader({
         {/* STOP 9 — ONE stop for the whole row, arrows inside. Six metadata
             items as six stops is the other half of the twenty-five-press
             problem Figma's focus frame is written to avoid. */}
-        {visibleMetadata.length > 0 && !dropped.metadata && (
+        {visibleMetadata.length > 0 && !dropped.metadata && !compressed && (
           <div
             ref={metaGroup.ref}
             role="group"
@@ -1274,16 +1821,47 @@ function EntityHeader({
                       looks like the real value and misleads. The icon never
                       appears alone: this row hides an item entirely before it
                       strips the text off one. */}
-                  <span
-                    data-roving
-                    tabIndex={metaGroup.index === i ? 0 : -1}
-                    className={cn("inline-flex items-center gap-[4px] min-w-0 text-[12px] max-w-[24ch]", FOCUS_RING)}
-                  >
-                    <ItemIcon size={14} strokeWidth={1.75} style={{ color: "var(--color-icon-neutral-dark)" }} />
-                    <span className="block truncate text-[12px] font-medium" style={{ color: "var(--color-text-body)" }}>
-                      {item.text}
+                  {/* An actionable item is a real <button>; a plain one stays
+                      a <span>. Same element tree either way, so the two sit on
+                      the same baseline in the same row — the only difference a
+                      reader sees is the underline. */}
+                  {item.onClick ? (
+                    <button
+                      type="button"
+                      data-roving
+                      tabIndex={metaGroup.index === i ? 0 : -1}
+                      onClick={item.onClick}
+                      className={cn(
+                        "inline-flex items-center gap-[4px] min-w-0 text-[12px] max-w-[24ch] cursor-pointer bg-transparent border-0 p-0 text-left",
+                        FOCUS_RING,
+                      )}
+                    >
+                      <ItemIcon size={14} strokeWidth={1.75} style={{ color: "var(--color-icon-neutral-dark)" }} />
+                      {/* DS Link type style — `Link NEW/S/Regular` is 12px,
+                          Medium, underlined. The weight and size already match
+                          this row, so what the link contributes is the
+                          underline, and ONLY the underline: the colour stays
+                          `--color-text-body` like every other item. The offset
+                          keeps the rule off the descenders in an address. */}
+                      <span
+                        className="block truncate text-[12px] font-medium underline underline-offset-[3px]"
+                        style={{ color: "var(--color-text-body)", textDecorationThickness: "0.5px" }}
+                      >
+                        {item.text}
+                      </span>
+                    </button>
+                  ) : (
+                    <span
+                      data-roving
+                      tabIndex={metaGroup.index === i ? 0 : -1}
+                      className={cn("inline-flex items-center gap-[4px] min-w-0 text-[12px] max-w-[24ch]", FOCUS_RING)}
+                    >
+                      <ItemIcon size={14} strokeWidth={1.75} style={{ color: "var(--color-icon-neutral-dark)" }} />
+                      <span className="block truncate text-[12px] font-medium" style={{ color: "var(--color-text-body)" }}>
+                        {item.text}
+                      </span>
                     </span>
-                  </span>
+                  )}
                 </Tooltip>
               )
             })}
@@ -1312,7 +1890,7 @@ function ActionOverflowMenu({
   disabled,
   disabledTooltip,
 }: {
-  items: RecordAction[]
+  items: EntityHeaderAction[]
   disabled?: boolean
   disabledTooltip?: string
 }) {

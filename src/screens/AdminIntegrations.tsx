@@ -11,6 +11,7 @@ import { EntityList }    from "@/components/ui/entity-list"
 import type { EntityListItemData } from "@/components/ui/entity-list"
 import { Filters }       from "@/components/ui/filters"
 import { Pagination }    from "@/components/ui/pagination"
+import { HighlightIcon } from "@/components/ui/highlight-icon"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -330,7 +331,7 @@ function RequestPanel({ onClose }: { onClose: () => void }) {
 
   if (submitted) {
     return (
-      <div style={{ padding: "60px 24px", textAlign: "center" }}>
+      <div style={{ padding: "60px 0", textAlign: "center" }}>
         <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--badge-success)18", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
           <Icons.CheckCircle size={24} style={{ color: "var(--badge-success)" }} />
         </div>
@@ -344,7 +345,7 @@ function RequestPanel({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ padding: "20px 0", display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.6 }}>
         Don't see what you need? Tell us and we'll evaluate it for a future release.
       </div>
@@ -412,7 +413,7 @@ function CatalogDetailPanel({ item, connected, onConnect }: {
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
       {/* Header identity */}
-      <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", gap: 14, alignItems: "center" }}>
+      <div style={{ padding: "16px 0", borderBottom: "1px solid var(--border)", display: "flex", gap: 14, alignItems: "center" }}>
         <div style={{ width: 44, height: 44, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 10, background: "var(--surface-raised)", border: "1px solid var(--border)", color: "var(--muted-foreground)" }}>
           {IC ? <IC size={22} /> : null}
         </div>
@@ -429,7 +430,7 @@ function CatalogDetailPanel({ item, connected, onConnect }: {
         )}
       </div>
 
-      <div style={{ flex: 1, padding: "16px 20px" }}>
+      <div style={{ flex: 1, padding: "16px 0" }}>
         {step === "info" && (
           <>
             <div style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.6, marginBottom: 20 }}>{item.description}</div>
@@ -650,9 +651,7 @@ function CatalogView({ connectedIds }: { connectedIds: Set<string> }) {
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-                    <div style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 7, background: "var(--surface)", border: "1px solid var(--border)", color: "var(--muted-foreground)" }}>
-                      <IntIcon icon={item.icon} />
-                    </div>
+                    <HighlightIcon size="md" variant="neutral" icon={<IntIcon icon={item.icon} />} />
                     {connected.has(item.id) && (
                       <Icons.CheckCircle size={13} style={{ color: "var(--badge-success)" }} />
                     )}
@@ -895,9 +894,7 @@ function IntegrationDetailPage({ integration }: {
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {integration.capabilitiesV2!.tools!.map(cap => (
                     <div key={cap.name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)" }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 6, background: "var(--primary)12", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <Icons.Zap size={13} style={{ color: "var(--primary)" }} />
-                      </div>
+                      <HighlightIcon size="sm" variant="informative" iconName="Zap" />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>{cap.name}</div>
                         {cap.desc && <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>{cap.desc}</div>}
@@ -916,9 +913,7 @@ function IntegrationDetailPage({ integration }: {
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {integration.capabilitiesV2!.dataSync!.map(cap => (
                     <div key={cap.name} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--surface)" }}>
-                      <div style={{ width: 28, height: 28, borderRadius: 6, background: "var(--badge-success)12", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                        <Icons.Database size={13} style={{ color: "var(--badge-success)" }} />
-                      </div>
+                      <HighlightIcon size="sm" variant="success" iconName="Database" />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>{cap.name}</div>
                         {cap.desc && <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>{cap.desc}</div>}

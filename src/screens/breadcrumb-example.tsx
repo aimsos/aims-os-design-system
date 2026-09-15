@@ -109,7 +109,16 @@ const FILTER_OPTIONS = {
 
 // ── Main screen component ─────────────────────────────────────────────────────
 
-export function BreadcrumbExampleScreen({ showBreadcrumb }: { showBreadcrumb: boolean }) {
+/**
+ * `level` is the navigation depth being demonstrated, because the pattern has
+ * three states and a boolean could only ever show two:
+ *   1  a root list — nothing to trace, nothing to go back to
+ *   2  a detail reached from that list — back arrow, and the title names the
+ *      PARENT so the arrow says where it goes
+ *   3  something inside that detail — a breadcrumb, because here "up one
+ *      level" and "back" are finally different destinations
+ */
+export function BreadcrumbExampleScreen({ level }: { level: 1 | 2 | 3 }) {
   return (
     <div style={{ width: "100%", flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" }}>
       <AppBackground variant="default" />
@@ -125,34 +134,59 @@ export function BreadcrumbExampleScreen({ showBreadcrumb }: { showBreadcrumb: bo
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-          {/* Fixed zone: Header with the breadcrumb inside it. The trail used to
-              sit in its own div above the Header, with a backButton beside the
-              title — the pattern this replaces. From L2 the breadcrumb lives in
-              Header.breadcrumb and there is no back arrow: the first crumb is
-              the way back. */}
+          {/* Fixed zone: one affordance, never two, and the depth picks it.
+              L2 gets the back arrow with the PARENT as the title — that text is
+              what labels the arrow. L3 gets the breadcrumb, because only there
+              are "up" and "back" different places. Revised 2026-09-09; this
+              example used to put a breadcrumb at L2. */}
+          {/* Two separate Headers rather than one with both props. They are
+              mutually exclusive by level, but `audit-tokens` reads the JSX
+              statically and cannot know that — and the check is right to be
+              strict, because "never both" is still the rule. Writing them
+              apart also puts the two patterns side by side in the source,
+              which is what this file is for.
+
+              The CTA and the tag are the same in both, since neither is what
+              this example is about. */}
           <div style={{ flexShrink: 0 }}>
-            <Header
-              title="Title section"
-              description="Securely store, manage, and organize your documents and folders"
-              size="size-l"
-              breadcrumb={showBreadcrumb ? (
-                <Breadcrumb
-                  depth={2}
-                  items={[
-                    { label: "AI Workers", href: "/ai-workers" },
-                    { label: "Churn Risk Intervention"          },
-                  ]}
-                  onNavigate={() => {}}
-                />
-              ) : undefined}
-              tag={<Tag variant="informative" size="sm">Status</Tag>}
-              // The chevron this example used to carry sat AFTER the label — a CTA that
-              // opens a menu. HeaderAction has no trailing-icon option on purpose: a menu
-              // trigger is a different control from an action button, and the DS has no
-              // such component yet. This example only needs a generic CTA.
-              // DS-GAP: Header has no menu-trigger action.
-              primaryAction={{ label: "CTA" }}
-            />
+            {level === 3 ? (
+              <Header
+                title="Run 4821"
+                description="Securely store, manage, and organize your documents and folders"
+                size="size-l"
+                breadcrumb={
+                  <Breadcrumb
+                    depth={3}
+                    items={[
+                      { label: "AI Workers",              href: "/ai-workers" },
+                      { label: "Churn Risk Intervention", href: "/churn"      },
+                      { label: "Run 4821"                                     },
+                    ]}
+                    onNavigate={() => {}}
+                  />
+                }
+                tag={<Tag variant="informative" size="sm">Status</Tag>}
+                primaryAction={{ label: "CTA" }}
+              />
+            ) : (
+              <Header
+                /* L2 names the PARENT — that text is what labels the arrow.
+                   L1 has nothing above it, so it names itself and shows no
+                   way back. */
+                title={level === 2 ? "AI Workers" : "Title section"}
+                description="Securely store, manage, and organize your documents and folders"
+                size="size-l"
+                backButton={level === 2}
+                onBack={() => {}}
+                tag={<Tag variant="informative" size="sm">Status</Tag>}
+                // The chevron this example used to carry sat AFTER the label — a CTA that
+                // opens a menu. HeaderAction has no trailing-icon option on purpose: a menu
+                // trigger is a different control from an action button, and the DS has no
+                // such component yet. This example only needs a generic CTA.
+                // DS-GAP: Header has no menu-trigger action.
+                primaryAction={{ label: "CTA" }}
+              />
+            )}
           </div>
 
           {/* Scrollable content zone */}

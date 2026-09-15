@@ -546,7 +546,7 @@ const failureCount = EVENTS.filter(e => e.result === "failure").length
             subtitle={selected && cat && res ? `${cat.label} · ${res.label} · ${date} at ${time}` : ""}
           >
             {selected && cat && res && (
-              <div style={{ padding: "0 20px 20px" }}>
+              <div style={{ padding: "0 0 20px" }}>
                 {/* Badges */}
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 16, paddingTop: 4 }}>
                   <span style={{

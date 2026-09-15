@@ -1,0 +1,36 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "autoPort": true
+    },
+    {
+      "name": "dev-wb3",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "/Users/mike/code/aims-os-wb3",
+        "run",
+        "dev"
+      ],
+      "autoPort": true
+    },
+    {
+      "name": "dev-ucp",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "/Users/mike/code/aims-os-ucp",
+        "run",
+        "dev"
+      ],
+      "autoPort": true
+    }
+  ]
+}

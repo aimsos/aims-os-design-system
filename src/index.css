@@ -147,8 +147,15 @@
        interpolated inside Tailwind arbitrary gradient strings */
 
     /* ── Card Container tokens — dark ───────────────────── */
-    /* Default / White Opacity — Surface/Neutral/White dark + Border/Neutral/Lighter dark */
-    --card-default-bg:              rgba(255,255,255,0.1);   /* Surface/Neutral/White dark      = White/10  */
+    /* Default — Surface/Card/Default/BG dark + Border/Neutral/Lighter dark
+       The Card's Default style has its own surface token: one step darker than
+       the general white/neutral so a Text field nested inside it (White/10)
+       reads as floating ABOVE the card instead of level with it. */
+    --color-surface-card-default-bg: rgba(255,255,255,0.05); /* Surface/Card/Default/BG dark    = White/5   */
+    --card-default-bg:              var(--color-surface-card-default-bg);
+    /* White Opacity — unchanged, still Surface/Neutral/White. Figma rebound the
+       Default style only, so this style keeps its own binding at White/10. */
+    --card-whiteopacity-bg:         rgba(255,255,255,0.1);   /* Surface/Neutral/White dark      = White/10  */
     --card-default-border:          rgba(255,255,255,0.15);  /* Border/Neutral/Lighter dark     = White/15  */
     --card-default-hover-bd:        rgba(255,255,255,0.1);   /* Border/Neutral/Default dark     = White/10  */
     --card-default-selected-bd:     #2b7fff;                 /* Border/Primary/Default dark                 */
@@ -841,8 +848,12 @@
     --btn-main-ring:           #cbfff4;   /* Main Action focus ring light — DS Border/Success/Subtle */
 
     /* ── Card Container tokens — light ──────────────────── */
-    /* Default / White Opacity — Surface/Neutral/White light + Border/Neutral/Lighter light */
-    --card-default-bg:              #ffffff;                 /* Surface/Neutral/White light     = Gray/100  */
+    /* Default — Surface/Card/Default/BG light + Border/Neutral/Lighter light
+       Same value as the general white in light mode; the two only diverge in dark. */
+    --color-surface-card-default-bg: #ffffff;                /* Surface/Card/Default/BG light   = Gray/100  */
+    --card-default-bg:              var(--color-surface-card-default-bg);
+    /* White Opacity — unchanged, still Surface/Neutral/White. */
+    --card-whiteopacity-bg:         #ffffff;                 /* Surface/Neutral/White light     = Gray/100  */
     --card-default-border:          #bababa;                 /* Border/Neutral/Lighter light    = Gray/500  */
     --card-default-hover-bd:        #5c5c5c;                 /* Border/Neutral/Default light    = Gray/600  */
     --card-default-selected-bd:     #2173ff;                 /* Border/Primary/Default light                */
@@ -1536,4 +1547,48 @@
 @keyframes alert-banner-toast-in {
   from { opacity: 0; transform: translateX(16px); }
   to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ─── Entrance animations ────────────────────────────────────────────────────
+ *
+ * These exist because `animate-in`, `fade-in` and `slide-in-from-*` do NOT.
+ *
+ * The repo depends on tw-animate-css 1.4, which is a Tailwind v4 package: it
+ * ships `@utility` rules that a v4 build turns into classes. This repo is on
+ * Tailwind 3.4, which ignores them silently — `@import "tw-animate-css"` emits
+ * nothing, the classes resolve to no CSS, and every element wearing them simply
+ * appears. No error, no warning, and a screenshot looks identical to one of a
+ * chart that animated and finished. That is how a whole pass of "make the
+ * widgets appear smoothly" shipped with nothing moving.
+ *
+ * Four keyframes cover every entrance in the product so far. Delay and duration
+ * stay at the call site; the class only says which way the thing comes in.
+ * Curve is the expo-out the DS modal already uses, so an entering chart and an
+ * opening dialog share a feel.
+ */
+@keyframes ds-rise  { from { opacity: 0; transform: translateY(8px)  } to { opacity: 1; transform: none } }
+@keyframes ds-slide { from { opacity: 0; transform: translateX(-8px) } to { opacity: 1; transform: none } }
+@keyframes ds-pop   { from { opacity: 0; transform: scale(0.85)      } to { opacity: 1; transform: none } }
+@keyframes ds-fade  { from { opacity: 0 } to { opacity: 1 } }
+
+.ds-enter-rise   { animation: ds-rise  320ms cubic-bezier(0.16, 1, 0.3, 1) backwards }
+.ds-enter-slide  { animation: ds-slide 320ms cubic-bezier(0.16, 1, 0.3, 1) backwards }
+.ds-enter-pop    { animation: ds-pop   320ms cubic-bezier(0.16, 1, 0.3, 1) backwards }
+.ds-enter-fade   { animation: ds-fade  500ms cubic-bezier(0.16, 1, 0.3, 1) backwards }
+
+/* A whole widget arriving, rather than one mark inside it: slower, and it
+ * settles from slightly below and slightly small so the card reads as placed
+ * rather than swapped. */
+@keyframes ds-widget-enter {
+  from { opacity: 0; transform: translateY(10px) scale(0.985) }
+  to   { opacity: 1; transform: none }
+}
+.ds-enter-widget { animation: ds-widget-enter 380ms cubic-bezier(0.16, 1, 0.3, 1) backwards }
+
+/* Motion is decoration here — every one of these is an entrance, so removing it
+ * costs the reader nothing and keeps the content. */
+@media (prefers-reduced-motion: reduce) {
+  .ds-enter-rise, .ds-enter-slide, .ds-enter-pop, .ds-enter-fade, .ds-enter-widget {
+    animation: none;
+  }
 }

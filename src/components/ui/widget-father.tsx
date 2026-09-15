@@ -331,7 +331,17 @@ export function WidgetFather({
         }}
       >
         {/* ── Body ──────────────────────────────────────────────────────── */}
-        <div className="w-full" style={{ flex: "1 1 auto", minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        {/* The content area SCROLLS rather than clipping. A widget is a fixed
+            box — the canvas gives it rowSpan × 64 − 16 and nothing grows the
+            slot — so content taller than the box had two possible outcomes
+            and both were wrong: with overflow hidden the last row vanished
+            with nothing to say it was there (a "Last scan · Aug 27" line
+            disappeared exactly this way), and without it the card painted
+            over the widget below and the canvas gaps stopped being real.
+            Scrolling keeps the slot honest and the content reachable, which
+            is also what the Last Activity widget's own spec asks for:
+            "internal scroll for overflow". */}
+        <div className="w-full" style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", overflowX: "hidden", display: "flex", flexDirection: "column" }}>
           {hasConnectionError ? (
             <div
               className="flex flex-col items-center justify-center rounded-[12px]"

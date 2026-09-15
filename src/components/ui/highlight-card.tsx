@@ -36,6 +36,19 @@ export interface HighlightCardProps {
   feedbackType?: HighlightCardFeedback
   /** Lucide icon name rendered inside the HighlightIcon circle */
   iconName?: string
+  /**
+   * The icon's tint. Defaults to whatever `style` implies, which for the
+   * default (and only non-deprecated) style is `informative`.
+   *
+   * This exists because colour on this card belongs to the ICON: the coloured
+   * `style` backgrounds are deprecated, and the guide is explicit that "colour
+   * differentiation goes only in the iconName and feedbackType props". Until
+   * now `iconName` could say WHAT the metric is and nothing could say what
+   * KIND it is, so three cards counting three different things — a verified
+   * fact, a provisional claim, a raw document — all read informative blue.
+   * Michael, 2026-09-09.
+   */
+  iconVariant?: HighlightIconVariant
   /** Background style variant. Default: "default" */
   style?: HighlightCardStyle
   /** Disables interaction and reduces opacity to 40% */
@@ -96,6 +109,7 @@ export function HighlightCard({
   feedback,
   feedbackType = "neutral",
   iconName = "TrendingUp",
+  iconVariant,
   style = "default",
   disabled = false,
   className,
@@ -126,7 +140,7 @@ export function HighlightCard({
         </div>
         <HighlightIcon
           iconName={iconName}
-          variant={STYLE_ICON_VARIANT[style]}
+          variant={iconVariant ?? STYLE_ICON_VARIANT[style]}
           size="lg"
           iconColor="dark"
           className="shrink-0"

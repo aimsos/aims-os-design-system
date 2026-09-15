@@ -1,10 +1,14 @@
 import { useRef, useState, useEffect } from "react"
 import { HighlightCard, type HighlightCardStyle, type HighlightCardFeedback } from "@/components/ui/highlight-card"
+import type { HighlightIconVariant } from "@/components/ui/highlight-icon"
 
 export interface MetricCardDef {
   label:     string
   value:     string | number
   iconName?: string
+  /** The icon's tint — how one card in the grid says it counts a different
+   *  KIND of thing from its neighbour. See HighlightCard.iconVariant. */
+  iconVariant?: HighlightIconVariant
   style?:    HighlightCardStyle
   /** The delta line under the value — "+2.1%", "No change", "+142 this month".
    *  HighlightCard has always rendered this; the grid could not pass it through,
@@ -48,7 +52,7 @@ export function AdaptiveMetricGrid({ cards, threshold = 310, className }: Adapti
       {!isNarrow ? (
         <div className="grid gap-[8px]" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))" }}>
           {cards.map((c, i) => (
-            <HighlightCard key={i} label={c.label} value={c.value} iconName={c.iconName} feedback={c.feedback} feedbackType={c.feedbackType} style={c.style} className="!w-full" />
+            <HighlightCard key={i} label={c.label} value={c.value} iconName={c.iconName} iconVariant={c.iconVariant} feedback={c.feedback} feedbackType={c.feedbackType} style={c.style} className="!w-full" />
           ))}
         </div>
       ) : (
@@ -56,7 +60,7 @@ export function AdaptiveMetricGrid({ cards, threshold = 310, className }: Adapti
           {/* Row 1: first two cards side by side */}
           <div className="grid grid-cols-2 gap-[8px]">
             {cards.slice(0, 2).map((c, i) => (
-              <HighlightCard key={i} label={c.label} value={c.value} iconName={c.iconName} feedback={c.feedback} feedbackType={c.feedbackType} style={c.style} className="!w-full" />
+              <HighlightCard key={i} label={c.label} value={c.value} iconName={c.iconName} iconVariant={c.iconVariant} feedback={c.feedback} feedbackType={c.feedbackType} style={c.style} className="!w-full" />
             ))}
           </div>
           {/* Row 2: third card full-width */}

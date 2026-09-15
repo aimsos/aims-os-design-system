@@ -5,6 +5,8 @@ import { ScreenLayout } from "@/components/layouts/screen-layout"
 import { Header }       from "@/components/ui/header"
 import { Button }       from "@/components/ui/button"
 import { AlertBanner }  from "@/components/ui/alert-banner"
+import { HighlightIcon } from "@/components/ui/highlight-icon"
+import type { HighlightIconVariant } from "@/components/ui/highlight-icon"
 
 // ─── Sidebar ──────────────────────────────────────────────────────────────────
 
@@ -13,19 +15,14 @@ import { AlertBanner }  from "@/components/ui/alert-banner"
 
 function KpiTile({ icon, label, value, delta, deltaUp, sub, accent }: {
   icon: React.ReactNode; label: string; value: string | number
-  delta?: string; deltaUp?: boolean; sub?: string; accent: string
+  delta?: string; deltaUp?: boolean; sub?: string; accent: HighlightIconVariant
 }) {
   return (
     <div style={{
       padding: "18px 20px", border: "1px solid var(--border)", borderRadius: 12,
       background: "var(--surface)", display: "flex", flexDirection: "column", gap: 10,
     }}>
-      <div style={{
-        width: 36, height: 36, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center",
-        background: `${accent}18`, color: accent, flexShrink: 0,
-      }}>
-        {icon}
-      </div>
+      <HighlightIcon size="lg" variant={accent} icon={icon} />
       <div>
         <div style={{ fontSize: 28, fontWeight: 800, color: "var(--foreground)", lineHeight: 1 }}>{value}</div>
         <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 4 }}>{label}</div>
@@ -80,8 +77,7 @@ function ActivityFeed() {
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)", overflow: "hidden" }}>
       <div style={{
-        padding: "14px 18px", borderBottom: "1px solid var(--border)",
-        background: "var(--surface-raised)", display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>Recent activity</div>
         <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>Today · Aug 26, 2026</span>
@@ -168,10 +164,10 @@ const ATTENTION_ITEMS: AttentionItem[] = [
   },
 ]
 
-const ATTENTION_META = {
-  error:   { color: "var(--badge-error)",   dot: "#ef4444" },  // audit-ignore: prototype fixture data
-  warning: { color: "var(--badge-alert)",   dot: "#f97316" },  // audit-ignore: prototype fixture data
-  info:    { color: "var(--badge-info)",    dot: "#6366f1" },  // audit-ignore: prototype fixture data
+const ATTENTION_META: Record<string, { color: string; tile: HighlightIconVariant }> = {
+  error:   { color: "var(--badge-error)", tile: "error" },
+  warning: { color: "var(--badge-alert)", tile: "alert" },
+  info:    { color: "var(--badge-info)",  tile: "informative" },
 }
 
 function NeedsAttention() {
@@ -181,8 +177,7 @@ function NeedsAttention() {
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)", overflow: "hidden" }}>
       <div style={{
-        padding: "14px 18px", borderBottom: "1px solid var(--border)",
-        background: "var(--surface-raised)", display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>Needs attention</div>
         {visible.length > 0 && (
@@ -206,12 +201,8 @@ function NeedsAttention() {
               display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 18px",
               borderBottom: i < visible.length - 1 ? "1px solid var(--border)" : "none",
             }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: 7, flexShrink: 0,
-                background: `${meta.dot}15`, color: meta.color,
-                display: "flex", alignItems: "center", justifyContent: "center", marginTop: 1,
-              }}>
-                {item.icon}
+              <div style={{ marginTop: 1, flexShrink: 0 }}>
+                <HighlightIcon size="sm" variant={meta.tile} icon={item.icon} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "var(--foreground)", marginBottom: 1 }}>{item.title}</div>
@@ -263,8 +254,7 @@ function SystemStatus() {
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)", overflow: "hidden" }}>
       <div style={{
-        padding: "14px 18px", borderBottom: "1px solid var(--border)",
-        background: "var(--surface-raised)", display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>System status</div>
         <span style={{
@@ -321,8 +311,7 @@ function UsageCard() {
   return (
     <div style={{ border: "1px solid var(--border)", borderRadius: 12, background: "var(--surface)", overflow: "hidden", marginBottom: 16 }}>
       <div style={{
-        padding: "14px 18px", borderBottom: "1px solid var(--border)",
-        background: "var(--surface-raised)", display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between",
       }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)" }}>Usage this month</div>
         <Button variant="secondary" size="sm">View billing</Button>
@@ -388,14 +377,14 @@ export function AdminOverviewScreen({ onNavigate }: { onNavigate?: (id: string) 
           value={47}
           delta="+3 this month"
           deltaUp
-          accent="#6366f1"  // audit-ignore: prototype fixture data
+          accent="informative"
         />
         <KpiTile
           icon={<Icons.Plug size={17} />}
           label="Integrations connected"
           value={6}
           sub="1 sync issue"
-          accent="#0ea5e9"  // audit-ignore: prototype fixture data
+          accent="light-blue"
         />
         <KpiTile
           icon={<Icons.Bot size={17} />}
@@ -403,14 +392,14 @@ export function AdminOverviewScreen({ onNavigate }: { onNavigate?: (id: string) 
           value={7}
           delta="2 scheduled today"
           deltaUp
-          accent="#06b6d4"  // audit-ignore: prototype fixture data
+          accent="purple"
         />
         <KpiTile
           icon={<Icons.Shield size={17} />}
           label="Security score"
           value="50 / 100"
           sub="2 of 4 checks passing"
-          accent="#f97316"  // audit-ignore: prototype fixture data
+          accent="alert"
         />
       </div>
 

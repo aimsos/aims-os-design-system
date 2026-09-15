@@ -84,13 +84,23 @@ try {
 // Key on type + file + name, never the line: lines move on every edit and a
 // decision must survive that. Findings without a name (main-overuse is
 // per-file) key on the file alone.
-const keyOf = (f) => [f.type, f.file, f.name].filter(Boolean).join(":")
+// Separator-insensitive, matching audit-tokens.cjs — a waiver written on
+// Windows must resolve to the same finding here as it does in the terminal
+// audit, or the DS Health page and CI disagree about what is waived.
+const posix = (k) => k.replace(/\\/g, "/")
+const keyOf = (f) => posix([f.type, f.file, f.name].filter(Boolean).join(":"))
+
+// The decisions file is hand-written, so its keys get normalised too rather
+// than trusting whoever typed them to have been on the same OS as CI.
+const decisionsByKey = Object.fromEntries(
+  Object.entries(decisions).map(([k, v]) => [posix(k), v])
+)
 
 const findings = warnings
   .filter((w) => TRACKED[w.type])
   .map((w) => {
     const key = keyOf(w)
-    const d = decisions[key]
+    const d = decisionsByKey[key]
     return {
       key,
       type: w.type,

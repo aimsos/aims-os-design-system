@@ -147,6 +147,23 @@ export interface NextBestActionCardProps {
    */
   variant?: "purple" | "default"
   size?: "default" | "sm"
+  /**
+   * Render the BODY only — no CardContainer, no surface of its own.
+   *
+   * For a host that already supplies the surface. The one that does today is a
+   * widget slot: `WidgetPreview`'s contract is "the body of a widget — no card,
+   * no title, no chrome. Whatever draws it, the caller wraps it", and a
+   * CardContainer inside a WidgetFather is a card inside a card.
+   *
+   * This exists so the recommendation has ONE implementation across both
+   * hosts. The alternative was a second renderer in
+   * widget-candidate-content.tsx drawing the same label, title and actions
+   * again, which is how the same object ends up looking like two.
+   *
+   * `variant` is ignored when this is set: the purple belongs to the surface,
+   * and here the surface is the host's.
+   */
+  unstyled?: boolean
   className?: string
 }
 
@@ -154,18 +171,24 @@ export function NextBestActionCard({
   item,
   variant = "purple",
   size = "default",
+  unstyled = false,
   className,
 }: NextBestActionCardProps) {
   if (!item) return null
+  if (unstyled) {
+    return className
+      ? <div className={cn(className)}><Suggestion nba={item} compact={size === "sm"} /></div>
+      : <Suggestion nba={item} compact={size === "sm"} />
+  }
   return (
     <CardContainer variant={variant} size={size === "sm" ? "sm" : undefined} className={cn(className)}>
-      <Suggestion nba={item} />
+      <Suggestion nba={item} compact={size === "sm"} />
     </CardContainer>
   )
 }
 
 // ── Suggestion — label + dismiss, then title · timeAgo, then why, then actions
-function Suggestion({ nba }: { nba: NextBestAction }) {
+function Suggestion({ nba, compact = false }: { nba: NextBestAction; compact?: boolean }) {
   return (
     <div className="flex flex-col gap-[8px]">
       {/* Label row — the purple "Next Best Action" marker with the platform's
@@ -198,7 +221,7 @@ function Suggestion({ nba }: { nba: NextBestAction }) {
           <span className="text-[14px] font-semibold leading-[1.3]" style={{ color: "var(--color-text-subtitle)" }}>
             {nba.title}
           </span>
-          {nba.timeAgo && (
+          {nba.timeAgo && !compact && (
             <>
               <span aria-hidden="true" className="text-[14px] font-medium leading-[1.3]" style={{ color: "var(--color-text-purple)" }}>
                 ·
@@ -209,8 +232,18 @@ function Suggestion({ nba }: { nba: NextBestAction }) {
             </>
           )}
         </div>
-        {/* Wraps on purpose — this is the reasoning, not a subtitle. */}
-        <p className="text-[14px] font-medium leading-[1.5]" style={{ color: "var(--color-text-body)" }}>
+        {/* Wraps on purpose — this is the reasoning, not a subtitle. In a
+            narrow widget slot it clamps to two lines and the timestamp drops:
+            the reasoning is what earns the space, and "View details" is still
+            there for the rest. */}
+        <p
+          className="text-[14px] font-medium leading-[1.5]"
+          style={{
+            color: "var(--color-text-body)",
+            ...(compact ? { display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, overflow: "hidden" } : {}),
+          }}
+          title={compact ? nba.description : undefined}
+        >
           {nba.description}
         </p>
       </div>

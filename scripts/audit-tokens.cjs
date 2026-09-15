@@ -36,9 +36,18 @@
  *      and build checks have no way to catch "looks like the DS component
  *      but isn't")
  *   7. More than one `variant="main"` in a single screen file               → WARNING
- *      (CLAUDE.md: max 1 per screen, header CTA only — RecordHeader's one
- *      named exception lives inside record-header.tsx itself, so a screen
- *      that only ever renders `<RecordHeader .../>` never trips this)
+ *      (CLAUDE.md: max 1 per screen, header CTA only — EntityHeader's one
+ *      named exception lives inside entity-header.tsx itself, so a screen
+ *      that only ever renders `<EntityHeader .../>` never trips this.
+ *      Renamed in #112; this comment said RecordHeader until 2026-09-09)
+ *
+ *  15. A page `Header` carrying `tag` / `primaryAction` / `secondaryAction`
+ *      on a screen that also renders an `EntityHeader`                      → WARNING
+ *      (that card owns the record's identity, state and actions; the bar
+ *      above it carries navigation only. Heuristic because it reads the
+ *      FILE, not the route — a file holding both a list view and a detail
+ *      view will flag its list-view Header, which is legitimate and should
+ *      be waived in ds-decisions.json)
  *
  * Checks 6 and 7 are WARNING, not ERROR, on purpose for now: the first run
  * against the existing repo found 9 pre-existing hits, 2 of them already on
@@ -87,8 +96,15 @@ function listFiles(dir, exts) {
   return out
 }
 
+// Always POSIX, on every platform. `path.relative` hands back backslashes on
+// Windows, and that separator leaks into three things that have to agree with
+// each other across machines: the finding text a PR quotes, the JSON `--json`
+// feeds the DS Health page, and the `type:file:name` key a waiver in
+// ds-decisions.json is looked up by. A waiver written on Windows silently
+// failed to match on CI — PR #127, 2026-09-10 — because the two sides had
+// spelled the same file differently. One separator, decided here, once.
 function rel(p) {
-  return path.relative(ROOT, p)
+  return path.relative(ROOT, p).split(path.sep).join("/")
 }
 
 /**
@@ -380,9 +396,9 @@ screenFiles.forEach((file) => {
 // and Header applies variant="main" itself, so the one legitimate reason a
 // screen had to type the string is gone. Anything left is a content-area
 // button wearing the header's variant.
-// RecordHeader's one named exception lives inside record-header.tsx, so a
-// screen that renders <RecordHeader/> never writes the literal and never
-// trips this.
+// EntityHeader's one named exception (the `Ask` trigger) lives inside
+// entity-header.tsx, so a screen that renders <EntityHeader/> never writes
+// the literal and never trips this.
 const MAIN_VARIANT_RE = /variant=["']main["']/
 
 screenFiles.forEach((file) => {
@@ -461,10 +477,16 @@ screenFiles.forEach((file) => {
 
 // ── Report ───────────────────────────────────────────────────────────────
 // ── Check 9: backButton and Breadcrumb on the same Header (ERROR) ────────
-// From L2 a page states where it sits with a breadcrumb; the first crumb IS
-// the way back, so an arrow beside it is two affordances pointing at one
-// place. Unlike checks 6-8 this is not a heuristic — a Header carrying both
-// props is unambiguously wrong, so it blocks rather than warns.
+// One affordance, never two — and the DEPTH picks which (revised 2026-09-09):
+// L2 is the back arrow, with the parent's name as the title so the arrow is
+// labelled; L3+ is the breadcrumb, because only there are "up one level" and
+// "back" different destinations. At L2 they are the same place, so a Header
+// carrying both is pointing twice at one target.
+//
+// The rule this check enforces did not change when the depths flipped — both
+// versions forbid both props on one Header — so only the wording here moved.
+// Unlike checks 6-8 this is not a heuristic: a Header carrying both is
+// unambiguously wrong, so it blocks rather than warns.
 //
 // Matches a `<Header` tag that carries both `breadcrumb` and `backButton`, and
 // the older shape where a hand-rolled trail sat next to a Header with a back
@@ -484,11 +506,49 @@ screenFiles.forEach((file) => {
       navConflicts.push({
         file: rel(file),
         line: text.slice(0, m.index).split("\n").length,
-        message: "carries both breadcrumb and backButton — from L2 the first crumb IS the way back. Drop backButton.",
+        message: "carries both breadcrumb and backButton — one affordance, and the depth picks it: L2 is backButton with the PARENT as the title, L3+ is the breadcrumb. Drop whichever does not match this page's depth.",
       })
     }
   }
 })
+
+// ── Check 15: a page Header repeating what an EntityHeader already shows ──
+// EntityHeader owns the record: its name, its state badge, its actions. When
+// one is on the page, the bar above it carries navigation ONLY — no `tag`,
+// and no CTAs the card already shows. Two identity blocks stacked on one
+// screen is not a hierarchy, it is a duplicate, and it is what the Universal
+// Profile shipped with until 2026-09-09.
+//
+// HEURISTIC, hence a warning rather than an error: this reads the file, not
+// the route, so a file holding BOTH a list view and a detail view will look
+// like a violation when its list-view Header is the one carrying the CTA.
+// That is a real shape in this repo, so the finding is worth surfacing and
+// not worth blocking a push over.
+const entityHeaderDupes = []
+
+screenFiles.forEach((file) => {
+  const text = fs.readFileSync(file, "utf8")
+  if (!/<EntityHeader\b/.test(text)) return
+
+  let m
+  const re = new RegExp(HEADER_TAG_RE.source, "g")
+  while ((m = re.exec(text))) {
+    const tag = m[0]
+    const offenders = []
+    if (/\btag\s*=/.test(tag)) offenders.push("tag")
+    if (/\bprimaryAction\s*=/.test(tag)) offenders.push("primaryAction")
+    if (/\bsecondaryAction\s*=/.test(tag)) offenders.push("secondaryAction")
+    if (offenders.length === 0) continue
+    entityHeaderDupes.push({
+      type: "entity-header-duplicate-bar",
+      file: rel(file),
+      line: text.slice(0, m.index).split("\n").length,
+      message: `<Header> carries ${offenders.join(" + ")} on a screen that also renders an EntityHeader — that card already shows the state and the record's actions. The bar above it carries navigation only. (If this Header belongs to a LIST view in the same file, it is fine — waive it in ds-decisions.json.)`,
+    })
+  }
+})
+
+warnings.push(...entityHeaderDupes)
 
 // ── Check 10: the same component name defined in two screen files ─────────
 // Check 6 asks "does this name collide with a real DS export". This asks the
@@ -841,6 +901,15 @@ screenFiles.forEach((file) => {
 // false positives.
 const SIDE_PAD_RE = /padding:\s*["'`]\s*[\d.]+(?:px)?\s+(1[6-9]|[2-9]\d)px/
 
+// Where a component's body ends: the next top-level declaration. This has to
+// know about `export function` and `const X = (…) =>` as well as a bare
+// `function`, because a screen file's LAST helper is usually followed by its
+// one `export function …Screen`. Matching only `\nfunction` let that helper's
+// body run to end of file, so the whole page's padding was reported as if it
+// were inside a SlideOut child — four of AdminAuditLog's five hits, and every
+// hit in AdminIntegrations.
+const NEXT_TOP_LEVEL_RE = /\n(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+[A-Z]|\n(?:export\s+)?(?:const|class)\s+[A-Z]/
+
 screenFiles.forEach((file) => {
   const text = fs.readFileSync(file, "utf8")
   if (!/<SlideOut\b/.test(text)) return
@@ -858,10 +927,21 @@ screenFiles.forEach((file) => {
   if (childNames.size === 0) return
 
   const hits = []
+
+  // Inline children count too. AdminAuditLog's detail panel is written straight
+  // inside <SlideOut>…</SlideOut> rather than extracted into a component, and a
+  // name-only pass walked right past it.
+  blocks.forEach((b) => {
+    const blockStart = code.indexOf(b)
+    for (const m of b.matchAll(new RegExp(SIDE_PAD_RE, "g"))) {
+      hits.push(code.slice(0, blockStart + m.index).split("\n").length)
+    }
+  })
+
   childNames.forEach((name) => {
     const start = code.search(new RegExp(`function\\s+${name}\\s*\\(`))
     if (start === -1) return
-    const nextFn = code.slice(start + 1).search(/\nfunction\s+[A-Z]/)
+    const nextFn = code.slice(start + 1).search(NEXT_TOP_LEVEL_RE)
     const body = nextFn === -1 ? code.slice(start) : code.slice(start, start + 1 + nextFn)
     const lineOf = (offset) => code.slice(0, start + offset).split("\n").length
     for (const m of body.matchAll(new RegExp(SIDE_PAD_RE, "g"))) {
@@ -903,16 +983,31 @@ function printSection(title, items, formatter) {
 //
 // Accepted findings stay visible in the report, marked, so nobody forgets
 // they were waived. They are excluded only from the counts the ratchet reads.
+// Separator-insensitive on both sides. rel() above guarantees our side is
+// POSIX, but a waiver is hand-written by whoever made the call, on whatever
+// machine they were sitting at — and a rule that only works if a human types
+// the right slash is a rule that breaks on a Tuesday. PR #127, 2026-09-10: a
+// waiver authored on Windows read `src\\screens\\...`, never matched on CI, and
+// the finding it had already been ruled on went on blocking the push.
+//
+// Declared BEFORE the read below, not after it: the read is inside a try/catch
+// whose only job is a missing file, so a ReferenceError from using `posix` in
+// the temporal dead zone would be swallowed there and every waiver would
+// silently stop working. Caught here by a test, but only because one was run.
+const posix = (k) => k.replace(/\\/g, "/")
+
 const DECISIONS_PATH = path.join(ROOT, "ds-decisions.json")
 let acceptedKeys = new Set()
 try {
   const d = JSON.parse(fs.readFileSync(DECISIONS_PATH, "utf8")).decisions || {}
-  acceptedKeys = new Set(Object.keys(d).filter((k) => d[k].verdict === "accepted"))
+  acceptedKeys = new Set(
+    Object.keys(d).filter((k) => d[k].verdict === "accepted").map(posix)
+  )
 } catch { /* no decisions file — nothing is waived */ }
 
 // Same key shape generate-ds-health.cjs builds: type:file:name, never a line
 // number, so a verdict survives edits above it.
-const findingKey = (w) => [w.type, w.file, w.name].filter(Boolean).join(":")
+const findingKey = (w) => posix([w.type, w.file, w.name].filter(Boolean).join(":"))
 const isAccepted = (w) => acceptedKeys.has(findingKey(w))
 
 // `--json` dumps every finding as structured data and prints nothing else, so
@@ -948,6 +1043,7 @@ const iconTileWarnings  = warnings.filter((w) => w.type === "hand-rolled-icon-ti
 const cardTitleWarnings = warnings.filter((w) => w.type === "filled-card-title")
 const accentHoverWarnings = warnings.filter((w) => w.type === "accent-row-hover")
 const slideOutPadWarnings = warnings.filter((w) => w.type === "slideout-double-padding")
+const ehBarWarnings = warnings.filter((w) => w.type === "entity-header-duplicate-bar")
 
 // Accepted findings still print — with a marker — so a waiver stays visible
 // instead of quietly disappearing from the report.
@@ -973,6 +1069,7 @@ printSection("⚠️  WARNING — tinted icon tiles drawn inline (that is Highli
 printSection("⚠️  WARNING — filled title bar on something that is not a table", cardTitleWarnings, fmt)
 printSection("⚠️  WARNING — var(--accent) used as a row hover (it is a blue tint)", accentHoverWarnings, fmt)
 printSection("⚠️  WARNING — a SlideOut child re-padding itself", slideOutPadWarnings, fmt)
+printSection("⚠️  WARNING — a page Header repeating what an EntityHeader shows", ehBarWarnings, fmt)
 
 // The ratchet reads these. Accepted findings are subtracted here and nowhere
 // else: they stay in the report above, and in the DS Health page, but they no
@@ -991,6 +1088,7 @@ const openIconTile   = open(iconTileWarnings)
 const openCardTitle  = open(cardTitleWarnings)
 const openAccentHover = open(accentHoverWarnings)
 const openSlideOutPad = open(slideOutPadWarnings)
+const openEhBar = open(ehBarWarnings)
 
 // These three report once per file with a `count`, so the ratchet must compare
 // INSTANCES. Counting findings would mean a file already on the list could
@@ -1029,12 +1127,12 @@ const acceptedCount =
 // to the line below and the matching LABELS entries in audit-ratchet.cjs.
 if (process.argv.includes("--counts")) {
   console.log(
-    `AUDIT_COUNTS errors=${errors.length} orphan=${openOrphan.length} shadow=${openShadow.length} main_overuse=${openMainOveruse.length} card_reimpl=${openCardReimpl.length} badge=${instances(openBadge)} avatar=${instances(openAvatar)} raw_button=${instances(openRawBtn)} icon_tile=${instances(openIconTile)} card_title=${instances(openCardTitle)} accent_hover=${instances(openAccentHover)} slideout_pad=${instances(openSlideOutPad)}`
+    `AUDIT_COUNTS errors=${errors.length} orphan=${openOrphan.length} shadow=${openShadow.length} main_overuse=${openMainOveruse.length} card_reimpl=${openCardReimpl.length} badge=${instances(openBadge)} avatar=${instances(openAvatar)} raw_button=${instances(openRawBtn)} icon_tile=${instances(openIconTile)} card_title=${instances(openCardTitle)} accent_hover=${instances(openAccentHover)} slideout_pad=${instances(openSlideOutPad)} eh_bar=${instances(openEhBar)}`
   )
 }
 
 console.log(
-  `\nSummary: ${errors.length + navConflicts.length} error(s), ${openOrphan.length} orphan warning(s), ${spacingWarnings.length} spacing warning(s), ${openShadow.length} shadow-component warning(s), ${openMainOveruse.length} main-overuse warning(s), ${openCardReimpl.length} possible-card-reimpl warning(s), ${openDuplicate.length} duplicate-component warning(s), ${openWidgetVocab.length} widget-vocab warning(s), ${openBadge.length} hand-rolled-badge, ${openAvatar.length} hand-rolled-avatar, ${openRawBtn.length} raw-button, ${openIconTile.length} icon-tile, ${openCardTitle.length} filled-card-title, ${openAccentHover.length} accent-hover, ${openSlideOutPad.length} slideout-padding` +
+  `\nSummary: ${errors.length + navConflicts.length} error(s), ${openOrphan.length} orphan warning(s), ${spacingWarnings.length} spacing warning(s), ${openShadow.length} shadow-component warning(s), ${openMainOveruse.length} main-overuse warning(s), ${openCardReimpl.length} possible-card-reimpl warning(s), ${openDuplicate.length} duplicate-component warning(s), ${openWidgetVocab.length} widget-vocab warning(s), ${openBadge.length} hand-rolled-badge, ${openAvatar.length} hand-rolled-avatar, ${openRawBtn.length} raw-button, ${openIconTile.length} icon-tile, ${openCardTitle.length} filled-card-title, ${openAccentHover.length} accent-hover, ${openSlideOutPad.length} slideout-padding, ${openEhBar.length} entity-header-bar` +
     (acceptedCount > 0
       ? `\n         plus ${acceptedCount} accepted and waived in ds-decisions.json — shown above marked [accepted], not counted here.`
       : ".")
