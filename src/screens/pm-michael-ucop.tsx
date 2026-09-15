@@ -192,7 +192,10 @@ function UcopActivityFeed({
               iconName:    ENGAGEMENT_ICON[e.type],
               iconVariant: e.type === "Note" ? "purple" : e.type === "Task" ? "yellow" : "info",
               timestamp:   formatStamp(e.timestamp),
-              ...(e.aiSummary ? { aiInsight: { action: "AI summary", detail: e.aiSummary } } : {}),
+              /* `showAiPrefix: false` because EntityList renders its own "AI" before
+                 the action, and "AI" + "AI summary" reads as a stutter. The
+                 label keeps the DS wording; only the duplicate prefix goes. */
+              ...(e.aiSummary ? { aiInsight: { action: "AI summary", detail: e.aiSummary, showAiPrefix: false } } : {}),
               secondaryMeta: [
                 { iconName: "User", label: e.owner },
                 ...(showContact && who ? [{ iconName: "Contact", label: who.name }] : []),
@@ -257,14 +260,74 @@ function AiInsights({ signals, subject }: { signals: UcopSignal[]; subject: stri
   )
 }
 
+/**
+ * ── Activity's layout: the feed, and a rail that stays with it ──────────────
+ *
+ * Michael, 2026-09-15: Sentiment and AI Insights were at the BOTTOM, below
+ * every row of the feed, which is where content goes to not be read.
+ *
+ * TWO PLACES THEY COULD GO, and the choice is not a preference:
+ *
+ *   ABOVE THE FEED. They would be seen, but they are DERIVED FROM the feed —
+ *   a sentiment mix is a count of these rows, a synthesis is a read of them.
+ *   Putting the conclusion before the evidence reads as a summary you are
+ *   meant to accept, and it pushes the thing the reader opened this tab for
+ *   below the fold on every visit.
+ *
+ *   A RAIL BESIDE IT, STICKY. The feed keeps the main column and starts at
+ *   the top. The read stays on screen while the reader moves through the rows
+ *   it was made from — which is the actual relationship between them: you
+ *   read a call, and glance at whether the account's sentiment agrees. That
+ *   relationship is continuous, not an introduction, and continuous is what
+ *   sticky is for.
+ *
+ * So: the rail. It is 1:3 against the feed rather than 1:1 — prose in a
+ * narrow column is fine, a feed row in one is not — and it WRAPS below about
+ * 700px of content, where a 280px rail would squeeze both halves. Wrapped, it
+ * lands under the feed again, which is the honest fallback: at that width
+ * there is no "beside".
+ */
+function ActivityLayout({ chips, feed, rail }: { chips: React.ReactNode; feed: React.ReactNode; rail: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-[24px]">
+      {chips}
+      <div className="flex flex-wrap items-start gap-[24px]">
+        <div className="flex-[3_1_420px] min-w-0 flex flex-col gap-[24px]">{feed}</div>
+        {/* `top-[8px]` matches ScreenLayout's own content inset, so the rail
+            parks flush with where the scroll area begins rather than floating
+            an arbitrary gap under the tabs. */}
+        <aside className="flex-[1_1_280px] min-w-0 sticky top-[8px] flex flex-col gap-[12px]">{rail}</aside>
+      </div>
+    </div>
+  )
+}
+
 /* ── Accounts index — the way in ────────────────────────────────────────── */
 
+/**
+ * The accounts index.
+ *
+ * SIX METADATA ITEMS RENDERED AS SIX BARE ICONS, which is EntityList behaving
+ * exactly as documented and me not reading it: `secondaryMetaAutoIconAt`
+ * defaults to 5, so a seventh-item row drops every label and leaves a line of
+ * symbols nobody can decode. Four items, each with a tooltip, is both inside
+ * that ceiling and the number the DS aims for anyway.
+ *
+ * WHICH FOUR. The reader here is choosing which account to open, so each one
+ * answers a different question about that choice: what kind of business,
+ * how big, how urgent, and whether something is on fire. Contacts count and
+ * pipeline went to the description, where they read as a sentence rather than
+ * competing for the same glance — a count is only worth a slot if the number
+ * alone changes what you click.
+ */
 function AccountsIndex({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <div className="flex flex-col gap-[12px]">
       {COMPANIES.map(c => {
         const openTickets = ticketsOf(c.id).filter(t => t.status !== "Resolved").length
         const pipeline    = dealsOf(c.id).filter(d => d.stage !== "Closed Won").reduce((a, d) => a + d.amount, 0)
+        const people      = contactsOf(c.id).length
+        const renewalIn   = daysUntil(c.renewalDate)
         return (
           <CardContainer key={c.id} size="sm" className="!p-0 overflow-hidden">
             <EntityList items={[{
@@ -272,13 +335,25 @@ function AccountsIndex({ onOpen }: { onOpen: (id: string) => void }) {
               iconName: "Building2",
               iconVariant: c.health === "At Risk" ? "yellow" : c.health === "Escalation" ? "error" : "success",
               state: { label: c.health, variant: HEALTH_VARIANT[c.health] },
+              description:
+                `${c.industry} · ${c.employees.toLocaleString()} employees · ${c.city}. ` +
+                `${people} contact${people === 1 ? "" : "s"} on the account, ` +
+                `${money(pipeline)} of pipeline still open, owned by ${c.owner}.`,
+              /* Explicit icon-text, not left to the auto rule: four items sit
+                 under the ceiling today, and pinning the mode means adding a
+                 fifth later cannot silently strip the labels off all of them. */
+              secondaryMetaMode: "icon-text",
               secondaryMeta: [
-                { iconName: "Factory",  label: c.industry },
-                { iconName: "MapPin",   label: c.city },
-                { iconName: "Banknote", label: `${money(c.arr)} ARR` },
-                { iconName: "Contact",  label: `${contactsOf(c.id).length} contacts` },
-                { iconName: "Inbox",    label: `${openTickets} open` },
-                { iconName: "Briefcase", label: `${money(pipeline)} pipeline` },
+                { iconName: "Factory",  label: c.industry,
+                  tooltip: `Industry · ${c.industry}. What the account does, and what its renewal risk is benchmarked against.` },
+                { iconName: "Banknote", label: `${money(c.arr)} ARR`,
+                  tooltip: `Annual recurring revenue · ${c.arr.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })} a year. What this account is worth if it renews.` },
+                { iconName: "CalendarClock", label: `Renews in ${renewalIn}d`,
+                  tooltip: `Renewal · closes ${c.renewalDate}, in ${renewalIn} days. Every open question on this account is measured against it.` },
+                { iconName: "Inbox", label: `${openTickets} open`,
+                  tooltip: openTickets === 0
+                    ? "Open tickets · none. Nothing unresolved on this account."
+                    : `Open tickets · ${openTickets} unresolved. The oldest is what a renewal conversation runs into first.` },
               ],
               tags: [{ label: c.tier }],
               onClick: () => onOpen(c.id),
@@ -538,30 +613,34 @@ function CompanyProfile({
       )}
 
       {tab === "activity" && (
-        <div className="flex flex-col gap-[24px]">
-          <div className="flex gap-[8px]">
-            {ACTIVITY_GROUPS.map(g => (
-              <Chip key={g.id} size="s" variant={group === g.id ? "primary" : "secondary"} onClick={() => setGroup(g.id)}>
-                {g.label}
-              </Chip>
-            ))}
-          </div>
-          <UcopActivityFeed items={feedItems} showContact onOpenContact={onOpenContact} />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-[12px]">
-            <CardContainer size="sm">
-              <div className="flex flex-col gap-[12px]">
-                <UcopSectionLabel>Sentiment</UcopSectionLabel>
-                <SentimentBreakdown items={engagements} />
-              </div>
-            </CardContainer>
-            <CardContainer size="sm">
-              <div className="flex flex-col gap-[12px]">
-                <UcopSectionLabel>AI insights</UcopSectionLabel>
-                <AiInsights signals={signals} subject={company.name} />
-              </div>
-            </CardContainer>
-          </div>
-        </div>
+        <ActivityLayout
+          chips={
+            <div className="flex gap-[8px]">
+              {ACTIVITY_GROUPS.map(g => (
+                <Chip key={g.id} size="s" variant={group === g.id ? "primary" : "secondary"} onClick={() => setGroup(g.id)}>
+                  {g.label}
+                </Chip>
+              ))}
+            </div>
+          }
+          feed={<UcopActivityFeed items={feedItems} showContact onOpenContact={onOpenContact} />}
+          rail={
+            <>
+              <CardContainer size="sm">
+                <div className="flex flex-col gap-[12px]">
+                  <UcopSectionLabel>Sentiment</UcopSectionLabel>
+                  <SentimentBreakdown items={engagements} />
+                </div>
+              </CardContainer>
+              <CardContainer size="sm">
+                <div className="flex flex-col gap-[12px]">
+                  <UcopSectionLabel>AI insights</UcopSectionLabel>
+                  <AiInsights signals={signals} subject={company.name} />
+                </div>
+              </CardContainer>
+            </>
+          }
+        />
       )}
     </ScreenLayout>
   )
@@ -768,46 +847,55 @@ function ContactProfile({
       )}
 
       {tab === "activity" && (
-        <div className="flex flex-col gap-[24px]">
-          <div className="flex gap-[8px]">
-            {ACTIVITY_GROUPS.map(g => (
-              <Chip key={g.id} size="s" variant={group === g.id ? "primary" : "secondary"} onClick={() => setGroup(g.id)}>
-                {g.label}
-              </Chip>
-            ))}
-          </div>
-          <UcopActivityFeed items={feedItems} />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-[12px]">
-            <CardContainer size="sm">
+        <ActivityLayout
+          chips={
+            <div className="flex gap-[8px]">
+              {ACTIVITY_GROUPS.map(g => (
+                <Chip key={g.id} size="s" variant={group === g.id ? "primary" : "secondary"} onClick={() => setGroup(g.id)}>
+                  {g.label}
+                </Chip>
+              ))}
+            </div>
+          }
+          /* Emails and Follow-ups stay in the MAIN column, not the rail: both
+             are lists of the same rows the feed holds, and a list is evidence,
+             not a read of it. The rail is for the two widgets that interpret —
+             putting a third feed in a 280px column would also wrap every
+             subject line twice. */
+          feed={
+            <>
+              <UcopActivityFeed items={feedItems} />
               <div className="flex flex-col gap-[12px]">
                 <UcopSectionLabel>{`Emails · ${emails.length}`}</UcopSectionLabel>
                 {emails.length === 0
                   ? <span className="text-[12px]" style={{ color: "var(--field-supporting)" }}>No email on record.</span>
                   : <UcopActivityFeed items={emails} />}
               </div>
-            </CardContainer>
-            <CardContainer size="sm">
               <div className="flex flex-col gap-[12px]">
                 <UcopSectionLabel>{`Follow-ups · ${followUps.length}`}</UcopSectionLabel>
                 {followUps.length === 0
                   ? <span className="text-[12px]" style={{ color: "var(--field-supporting)" }}>Nothing outstanding.</span>
                   : <UcopActivityFeed items={followUps} />}
               </div>
-            </CardContainer>
-            <CardContainer size="sm">
-              <div className="flex flex-col gap-[12px]">
-                <UcopSectionLabel>Sentiment</UcopSectionLabel>
-                <SentimentBreakdown items={engagements} />
-              </div>
-            </CardContainer>
-            <CardContainer size="sm">
-              <div className="flex flex-col gap-[12px]">
-                <UcopSectionLabel>AI insights</UcopSectionLabel>
-                <AiInsights signals={signals} subject={contact.name} />
-              </div>
-            </CardContainer>
-          </div>
-        </div>
+            </>
+          }
+          rail={
+            <>
+              <CardContainer size="sm">
+                <div className="flex flex-col gap-[12px]">
+                  <UcopSectionLabel>Sentiment</UcopSectionLabel>
+                  <SentimentBreakdown items={engagements} />
+                </div>
+              </CardContainer>
+              <CardContainer size="sm">
+                <div className="flex flex-col gap-[12px]">
+                  <UcopSectionLabel>AI insights</UcopSectionLabel>
+                  <AiInsights signals={signals} subject={contact.name} />
+                </div>
+              </CardContainer>
+            </>
+          }
+        />
       )}
     </ScreenLayout>
   )
