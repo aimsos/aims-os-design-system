@@ -1,20 +1,22 @@
-import { useState, type ReactNode } from "react"
-import { Copy, Eye, Archive as ArchiveIcon, Trash2, ChevronDown, Check, Sparkle } from "lucide-react"
+import { useState } from "react"
+import { Copy, Eye, Archive as ArchiveIcon, Trash2 } from "lucide-react"
 import { ScreenLayout } from "@/components/layouts/screen-layout"
 import type { SidebarItem } from "@/components/ui/sidebar"
 import { Header } from "@/components/ui/header"
 import { Breadcrumb } from "@/components/ui/breadcrumb"
 import { Tabs } from "@/components/ui/tabs"
-import { SwitchTab } from "@/components/ui/switch-tab"
+import { Chip } from "@/components/ui/chip"
 import { Tag } from "@/components/ui/tag"
 import { Button } from "@/components/ui/button"
 import { Tooltip } from "@/components/ui/tooltip"
 import { AvatarCircle } from "@/components/ui/avatar"
 import { CardContainer } from "@/components/ui/card-container"
 import { HighlightIcon } from "@/components/ui/highlight-icon"
+import { Table, type TableColumn } from "@/components/ui/table"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ModalDialog } from "@/components/ui/modal-dialog"
 import { WidgetCanvasView, type CanvasSlot } from "@/components/layouts/widget-canvas-view"
+import { FactListContent, TimelineContent, type TimelineCard } from "./widget-content"
 import { MenuItem } from "@/components/ui/menu-item"
 
 import type { Playbook, PlaybookStatus, TrustMode } from "./playbooks-data"
@@ -42,6 +44,11 @@ const SIDEBAR_ITEMS: SidebarItem[] = [
 
 export type DetailTab = "overview" | "configuration" | "versions" | "history"
 export type OverviewSubtab = "what-it-does" | "activity"
+
+const OVERVIEW_SUBTABS: { id: OverviewSubtab; label: string }[] = [
+  { id: "what-it-does", label: "What this playbook does" },
+  { id: "activity",     label: "Activity" },
+]
 
 const STATUS_TAG_VARIANT: Record<PlaybookStatus, "success" | "alert"> = {
   Published: "success",
@@ -82,131 +89,51 @@ function generateSummary(pb: Playbook): string {
   return `This playbook orchestrates a comprehensive ${pb.categoryTag.toLowerCase()} journey, triggering automatically when "${pb.moment.primaryEvent}" is detected across ${sources}. It runs through ${pb.phaseCount} sequential phases toward the objective: ${pb.objective.text.charAt(0).toLowerCase()}${pb.objective.text.slice(1)}. ${trustClause}`
 }
 
-// ── "Playbook Flow" building blocks ─────────────────────────────────────────
+// ── "What this playbook does" — Overview default sub-view ───────────────
+//
+// SIX WIDGETS, EACH ONE A SHAPE THE PRODUCT ALREADY NAMES: a Notes summary, a
+// List of facts three times over, the catalog's Timeline strip for the phases,
+// and the DS Table for the hard gates.
+//
+// It used to be two widgets, the second of which ("Playbook Flow") was a wall
+// of nested CardContainers joined by chevrons — a card inside a card inside a
+// widget, six times, plus a second grid of phase cards inside it. Every fact in
+// it survives here; what changed is that each one now sits in a widget a PM
+// could rebuild in the widget builder, which is the whole ask.
 
-function FlowCard({ icon, label, iconVariant = "informative", children }: {
-  icon: string
-  label: string
-  iconVariant?: "informative" | "purple" | "success" | "alert"
-  children: ReactNode
-}) {
-  return (
-    <CardContainer size="sm" className="flex flex-col gap-[8px]">
-      <div className="flex items-center gap-[8px]">
-        <HighlightIcon iconName={icon} variant={iconVariant} size="sm" />
-        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--field-supporting)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-          {label}
-        </span>
-      </div>
-      <div style={{ fontSize: 13, lineHeight: 1.6, color: "var(--foreground)" }}>
-        {children}
-      </div>
-    </CardContainer>
-  )
-}
+const PHASE_TINTS: TimelineCard["tint"][] = ["primary", "purple", "light-blue", "yellow"]
 
-function FlowArrow() {
-  return (
-    <div style={{ display: "flex", justifyContent: "center" }}>
-      <ChevronDown size={16} style={{ color: "var(--field-supporting)" }} />
-    </div>
-  )
-}
+interface GateRow { text: string; tier: string; action: string }
 
-function PlaybookFlow({ playbook }: { playbook: Playbook }) {
-  const gates = [
-    ...playbook.hardGates.operational,
-    ...playbook.hardGates.legal,
-    ...playbook.hardGates.custom.map(c => ({ text: c.text, action: c.action })),
+const GATE_COLUMNS: TableColumn<GateRow>[] = [
+  { key: "text",   header: "Gate", width: "55%" },
+  { key: "tier",   header: "Tier", width: "15%", render: row => <Tag variant={row.tier === "Legal" ? "error" : "neutral"} size="sm">{row.tier}</Tag> },
+  { key: "action", header: "If it fails", width: "30%" },
+]
+
+function gateRows(pb: Playbook): GateRow[] {
+  return [
+    ...pb.hardGates.operational.map(g => ({ text: g.text, tier: "Operational", action: g.action })),
+    ...pb.hardGates.legal.map(g       => ({ text: g.text, tier: "Legal",       action: g.action })),
+    ...pb.hardGates.custom.map(g      => ({ text: g.text, tier: "Custom",      action: g.action })),
   ]
-
-  return (
-    <div className="flex flex-col gap-[16px]">
-      <div className="grid gap-[16px]" style={{ gridTemplateColumns: "1.6fr 1fr", alignItems: "start" }}>
-        {/* ── Left column — Objective → Enters Play When → Trust Controls ── */}
-        <div className="flex flex-col gap-[8px]">
-          <FlowCard icon="Target" label="Objective">
-            {playbook.objective.text}
-          </FlowCard>
-          <FlowArrow />
-          <FlowCard icon="Radio" label="Enters Play When">
-            <div style={{ fontWeight: 600, marginBottom: 6 }}>{playbook.moment.primaryEvent}</div>
-            <div className="flex flex-wrap gap-[6px]">
-              {playbook.moment.eventSources.map(s => (
-                <Tag key={s} variant="lightBlue" size="sm">{s}</Tag>
-              ))}
-            </div>
-          </FlowCard>
-          <FlowArrow />
-          <FlowCard icon={TRUST_ICON[playbook.trustMode]} label="Applies Trust Controls" iconVariant="purple">
-            {playbook.trustMode === "Draft"
-              ? "Not yet configured"
-              : `${playbook.trustMode} · ${playbook.trustControls.confidenceThreshold}% confidence · escalates to ${playbook.trustControls.escalatesTo}`}
-          </FlowCard>
-        </div>
-
-        {/* ── Right column — Hard gates, floats top-right ── */}
-        <FlowCard icon="ListChecks" label="Requires All Hard Gates To Pass" iconVariant="alert">
-          {gates.length === 0 ? (
-            <span style={{ color: "var(--field-supporting)" }}>No hard gates configured</span>
-          ) : (
-            <ul className="flex flex-col gap-[6px]" style={{ margin: 0, padding: 0, listStyle: "none" }}>
-              {gates.map((g, i) => (
-                <li key={i} className="flex items-start gap-[6px]">
-                  <Check size={13} style={{ color: "var(--hi-success-icon)", flexShrink: 0, marginTop: 2 }} />
-                  <span>{g.text}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </FlowCard>
-      </div>
-
-      {/* ── Phases row — spans both columns ── */}
-      <div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--field-supporting)", textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: 8 }}>
-          Executes Through {playbook.phases.length} Sequential Phases
-        </div>
-        <div className="flex flex-wrap gap-[12px]">
-          {playbook.phases.map((ph, i) => (
-            <CardContainer key={ph.id} size="sm" className="flex flex-col gap-[4px] flex-1 basis-[180px] min-w-[180px]">
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)" }}>Phase {i + 1}</div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>{ph.name}</div>
-              <div style={{ fontSize: 11, color: "var(--field-supporting)" }}>
-                {ph.durationLabel} · Max {ph.maxAttempts} attempts · {ph.channels.join(" + ")}
-              </div>
-            </CardContainer>
-          ))}
-        </div>
-      </div>
-
-      <FlowArrow />
-
-      {/* ── Success condition — closes the flow ── */}
-      <FlowCard icon="CheckCircle2" label="Success Condition" iconVariant="success">
-        {playbook.objective.successConditionText}
-      </FlowCard>
-    </div>
-  )
 }
-
-// ── "What this playbook does" — Overview default sub-tab ───────────────────
 
 function WhatThisPlaybookDoes({ playbook }: { playbook: Playbook }) {
+  const gates = gateRows(playbook)
+
   return (
     <WidgetCanvasView
       initialSlots={[
+        // ── Notes — the generated prose, plus the four counts as Tags ──
         {
-          uid: "ai-summary", title: "AI Intelligence Summary", colSpan: 3,
+          uid: "ai-summary", title: "AI Intelligence Summary", colSpan: 3, rowSpan: 4,
           content: (
-            <div className="flex flex-col gap-[12px]" style={{ padding: "0 16px 16px" }}>
-              <div
-                className="inline-flex items-center gap-[6px] self-start"
-                style={{ padding: "4px 10px", borderRadius: 8, background: "var(--tag-purple-bg)", border: "1px solid var(--tag-purple-bd)" }}
-              >
-                <Sparkle size={13} style={{ color: "var(--tag-purple-fg)" }} />
-                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--tag-purple-fg)" }}>Auto-generated</span>
-              </div>
+            <div className="flex flex-col gap-[12px]">
+              {/* A real Tag, not a hand-rolled pill: the old version drew its own
+                  8px-radius purple chip with a border and a padding of its own,
+                  which is exactly what audit check 12 is looking for. */}
+              <Tag variant="purple" size="sm" className="self-start">Auto-generated</Tag>
               <p style={{ fontSize: 13, lineHeight: 1.7, color: "var(--foreground)", margin: 0 }}>
                 {generateSummary(playbook)}
               </p>
@@ -219,12 +146,89 @@ function WhatThisPlaybookDoes({ playbook }: { playbook: Playbook }) {
             </div>
           ),
         },
+
+        // ── Three Lists of facts — what it is for, what starts it, how it is governed ──
         {
-          uid: "playbook-flow", title: "Playbook Flow", colSpan: 3, autoExpand: false, rowSpan: 16, minRowSpan: 10,
+          uid: "objective", title: "Objective", colSpan: 1, rowSpan: 4,
           content: (
-            <div style={{ padding: "0 16px 16px" }}>
-              <PlaybookFlow playbook={playbook} />
-            </div>
+            <FactListContent
+              facts={[
+                { label: "Goal", value: playbook.objective.text },
+                { label: "Success condition", value: playbook.objective.successConditionText },
+              ]}
+            />
+          ),
+        },
+        {
+          uid: "trigger", title: "Enters Play When", colSpan: 1, rowSpan: 4,
+          content: (
+            <FactListContent
+              facts={[
+                { label: "Primary event", value: playbook.moment.primaryEvent },
+                {
+                  label: "Listening on",
+                  value: (
+                    <div className="flex flex-wrap gap-[6px]">
+                      {playbook.moment.eventSources.map(src => (
+                        <Tag key={src} variant="lightBlue" size="sm">{src}</Tag>
+                      ))}
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          ),
+        },
+        {
+          uid: "trust", title: "Trust Controls", colSpan: 1, rowSpan: 4,
+          content: playbook.trustMode === "Draft" ? (
+            <FactListContent facts={[{ label: "Mode", value: "Not yet configured" }]} />
+          ) : (
+            <FactListContent
+              facts={[
+                {
+                  label: "Mode",
+                  value: (
+                    <span className="inline-flex items-center gap-[6px]">
+                      <HighlightIcon size="sm" variant="purple" iconName={TRUST_ICON[playbook.trustMode]} />
+                      {playbook.trustMode}
+                    </span>
+                  ),
+                },
+                { label: "Confidence threshold", value: `${playbook.trustControls.confidenceThreshold}%` },
+                { label: "Escalates to",         value: playbook.trustControls.escalatesTo },
+              ]}
+            />
+          ),
+        },
+
+        // ── Timeline — the sequential phases ──
+        {
+          uid: "phases", title: `Executes Through ${playbook.phases.length} Sequential Phases`, colSpan: 3, rowSpan: 3,
+          content: (
+            <TimelineContent
+              cards={playbook.phases.map((ph, i) => ({
+                value: String(i + 1),
+                label: ph.name,
+                meta:  `${ph.durationLabel} · max ${ph.maxAttempts} · ${ph.channels.join(" + ")}`,
+                tint:  PHASE_TINTS[i % PHASE_TINTS.length],
+              }))}
+            />
+          ),
+        },
+
+        // ── Table — the hard gates. Rows with three columns is a table, so it
+        //    is the DS Table, not a bulleted list with a tick glyph per line. ──
+        {
+          uid: "hard-gates", title: "Requires All Hard Gates To Pass", colSpan: 3, rowSpan: 5,
+          content: (
+            <Table
+              columns={GATE_COLUMNS}
+              data={gates}
+              size="sm"
+              emptyTitle="No hard gates configured"
+              emptyDescription="This playbook can execute without any gate having to pass first."
+            />
           ),
         },
       ] satisfies CanvasSlot[]}
@@ -388,15 +392,23 @@ export default function PlaybookDetail({
 
       {tab === "overview" && (
         <>
-          <SwitchTab
-            className="mb-[24px]"
-            items={[
-              { id: "what-it-does", label: "What this playbook does" },
-              { id: "activity",     label: "Activity / Usage" },
-            ]}
-            value={subtab}
-            onChange={id => onSubtabChange(id as OverviewSubtab)}
-          />
+          {/* Chips, not a SwitchTab. Two short labels and nothing to position:
+              a Chip row IS the selected/unselected control (Guardrails — "a
+              Chip is something you can select"), and it keeps both choices
+              visible without a second tab layer under the real Tabs. 24px to
+              the content below, same as every other nav layer. */}
+          <div className="flex flex-wrap gap-[8px] mb-[24px]">
+            {OVERVIEW_SUBTABS.map(st => (
+              <Chip
+                key={st.id}
+                variant={subtab === st.id ? "primary" : "secondary"}
+                size="m"
+                onClick={() => onSubtabChange(st.id)}
+              >
+                {st.label}
+              </Chip>
+            ))}
+          </div>
           {subtab === "what-it-does"
             ? <WhatThisPlaybookDoes playbook={playbook} />
             : <ActivityUsage playbook={playbook} />

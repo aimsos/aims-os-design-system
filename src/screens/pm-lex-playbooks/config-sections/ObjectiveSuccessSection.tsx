@@ -5,13 +5,12 @@ import { Button } from "@/components/ui/button"
 import { Toggle } from "@/components/ui/toggle"
 import { Tag } from "@/components/ui/tag"
 import { Chip } from "@/components/ui/chip"
-import { SectionCard, FieldHeading, HelperText, SelectField, AssistButton } from "./shared"
+import { CardContainer } from "@/components/ui/card-container"
+import { FormSections, FormSection, Field, SelectField, AssistButton } from "./shared"
 import {
   GOAL_TYPES, KPI_OPTIONS, PRIMARY_EVENTS, PREDEFINED_EXIT_CONDITIONS, EXIT_OUTCOMES, EXIT_CONDITION_KINDS,
   type ObjectiveSuccessDraft, type CustomExitConditionDraft,
 } from "./types"
-
-const SUB = "var(--field-supporting)"
 
 export interface ObjectiveSuccessSectionProps {
   value:    ObjectiveSuccessDraft
@@ -53,58 +52,63 @@ export function ObjectiveSuccessSection({ value, onChange }: ObjectiveSuccessSec
   }
 
   return (
-    <div className="flex flex-col gap-[16px]">
-      <SectionCard title="Goal Type">
-        <div>
-          <FieldHeading required>Goal Type</FieldHeading>
+    <FormSections>
+      {/* The section heading already says "Goal Type" — the field underneath
+          does not repeat it, and the Select is capped rather than stretched to
+          the full column for one short value. */}
+      <FormSection
+        title="Goal Type"
+        description="Defines the primary intent of this strategy. Tells the agent how to prioritize actions and approach content."
+      >
+        <Field width="narrow">
           <SelectField
             placeholder="Select the primary intent of this strategy"
             value={value.goalType}
             options={GOAL_TYPES}
             onChange={v => onChange({ goalType: v || null })}
           />
-          <HelperText>Defines the primary intent of this strategy. Tells the agent how to prioritize actions and approach content.</HelperText>
+        </Field>
+      </FormSection>
+
+      <FormSection
+        title="Primary Success Events"
+        description="The specific events that mark this playbook as successful. When any of these occur, the playbook exits and the objective is considered met."
+      >
+        <div className="flex flex-wrap gap-[8px]">
+          {PRIMARY_EVENTS.map(event => (
+            <Chip
+              key={event}
+              variant={value.successEvents.includes(event) ? "primary" : "secondary"}
+              size="m"
+              onClick={() => toggleSuccessEvent(event)}
+            >
+              {event}
+            </Chip>
+          ))}
         </div>
-      </SectionCard>
+      </FormSection>
 
-      <SectionCard title="Primary Success Events">
-        <div>
-          <FieldHeading required>Primary Success Events</FieldHeading>
-          <div className="flex flex-wrap gap-[8px]">
-            {PRIMARY_EVENTS.map(event => (
-              <Chip
-                key={event}
-                variant={value.successEvents.includes(event) ? "primary" : "secondary"}
-                size="m"
-                onClick={() => toggleSuccessEvent(event)}
-              >
-                {event}
-              </Chip>
-            ))}
-          </div>
-          <HelperText>The specific events that mark this playbook as successful. When any of these occur, the playbook exits and the objective is considered met.</HelperText>
-        </div>
-      </SectionCard>
-
-      <SectionCard title="Exit Conditions">
-        <p style={{ fontSize: 12, color: SUB, margin: 0 }}>
-          Select each condition that can stop this plan early, then define what happens for each one.
-        </p>
-
-        <div className="flex flex-col gap-[10px]">
+      <FormSection
+        title="Exit Conditions"
+        description="Select each condition that can stop this plan early, then define what happens for each one. Any of them can archive, escalate, retry, or hand off to another playbook."
+      >
+        {/* TWO COLUMNS. Five conditions each using the full 900px for a toggle,
+            a short label and a 200px Select left most of every row empty and
+            pushed the list twice as tall as it needed to be. */}
+        <div className="grid grid-cols-2 gap-x-[24px] gap-y-[12px]">
           {PREDEFINED_EXIT_CONDITIONS.map(cond => {
             const enabled = value.enabledExitConditionIds.includes(cond.id)
             return (
-              <div key={cond.id} className="flex items-center justify-between gap-[12px]">
-                <div className="flex items-center gap-[10px]">
+              <div key={cond.id} className="flex flex-col gap-[8px]">
+                <div className="flex items-start gap-[10px]">
                   <Toggle checked={enabled} onChange={() => toggleExitCondition(cond.id)} size="sm" />
-                  <div>
+                  <div className="min-w-0 flex flex-col items-start gap-[4px]">
                     <div style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>{cond.label}</div>
                     <Tag variant="neutral" size="sm">{cond.kind}</Tag>
                   </div>
                 </div>
                 {enabled && (
-                  <div style={{ width: 200, flexShrink: 0 }}>
+                  <div style={{ paddingLeft: 34 }}>
                     <SelectField
                       placeholder="Outcome"
                       value={value.exitConditionOutcomes[cond.id] ?? null}
@@ -119,9 +123,10 @@ export function ObjectiveSuccessSection({ value, onChange }: ObjectiveSuccessSec
         </div>
 
         {value.customExitConditions.length > 0 && (
-          <div className="flex flex-col gap-[10px]">
+          <div className="grid grid-cols-2 gap-[12px]">
+            {/* A card here is correct: each one IS an item, added and removable. */}
             {value.customExitConditions.map((c, i) => (
-              <div key={c.id} className="flex items-start gap-[8px]" style={{ padding: 10, borderRadius: 8, border: "1px solid var(--field-border)" }}>
+              <CardContainer key={c.id} size="sm" className="flex items-start gap-[8px]">
                 <div className="flex-1 min-w-0 flex flex-col gap-[8px]">
                   <Input
                     placeholder={`Custom exit condition ${i + 1} label`}
@@ -148,7 +153,7 @@ export function ObjectiveSuccessSection({ value, onChange }: ObjectiveSuccessSec
                   </div>
                 </div>
                 <Button variant="tertiary" size="sm" iconPosition="alone" icon={<X size={14} />} onClick={() => removeCustomExitCondition(c.id)} aria-label={`Remove custom exit condition ${i + 1}`} />
-              </div>
+              </CardContainer>
             ))}
           </div>
         )}
@@ -156,37 +161,34 @@ export function ObjectiveSuccessSection({ value, onChange }: ObjectiveSuccessSec
         <div>
           <Button variant="secondary" size="sm" icon={<Plus size={13} />} onClick={addCustomExitCondition}>Add Custom Exit Condition</Button>
         </div>
+      </FormSection>
 
-        <HelperText>Each condition can trigger a different outcome — archive, escalate, retry, or hand off to another playbook.</HelperText>
-      </SectionCard>
-
-      <SectionCard title="Business KPI Association">
-        <div>
-          <FieldHeading>Business KPI Association</FieldHeading>
+      <FormSection
+        title="Business KPI Association"
+        description="Link this objective to a business metric for reporting."
+      >
+        <Field width="narrow">
           <SelectField
             placeholder="No KPI association"
             value={value.kpiAssociation}
             options={KPI_OPTIONS}
             onChange={v => onChange({ kpiAssociation: v || KPI_OPTIONS[0] })}
           />
-          <HelperText>Link this objective to a business metric for reporting</HelperText>
-        </div>
-      </SectionCard>
+        </Field>
+      </FormSection>
 
-      <SectionCard title="Strategy Intent Notes">
-        <div className="flex items-center justify-between" style={{ marginBottom: 6 }}>
-          <FieldHeading>Strategy Intent Notes</FieldHeading>
-          <AssistButton />
-        </div>
-        <Textarea
-          placeholder="Why does this objective matter, strategically? (optional)"
-          value={value.strategyNotes}
-          onChange={e => onChange({ strategyNotes: e.target.value })}
-        />
-        <HelperText>
-          Describe the strategic reasoning behind this objective. NBA uses this guidance to align decisions with business intent. Your instructions take priority over default optimization logic.
-        </HelperText>
-      </SectionCard>
-    </div>
+      <FormSection
+        title="Strategy Intent Notes"
+        description="Describe the strategic reasoning behind this objective. NBA uses this guidance to align decisions with business intent — your instructions take priority over default optimization logic."
+      >
+        <Field action={<AssistButton />}>
+          <Textarea
+            placeholder="Why does this objective matter, strategically? (optional)"
+            value={value.strategyNotes}
+            onChange={e => onChange({ strategyNotes: e.target.value })}
+          />
+        </Field>
+      </FormSection>
+    </FormSections>
   )
 }

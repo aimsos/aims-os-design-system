@@ -5,7 +5,7 @@ import { Tag, type TagVariant } from "@/components/ui/tag"
 import { SwitchTab } from "@/components/ui/switch-tab"
 import { SlideOut } from "@/components/ui/slide-out"
 import { KNOWLEDGE_PACKS, type KnowledgePack, type KnowledgePackUsage } from "@/screens/pm-lex-playbooks/knowledgePacks"
-import { SectionCard } from "./shared"
+import { FormSections, FormSection } from "./shared"
 import type { KnowledgeDraft } from "./types"
 
 const SUB = "var(--field-supporting)"
@@ -89,8 +89,11 @@ export function KnowledgeSection({ value, onChange }: KnowledgeSectionProps) {
   const previewPack = KNOWLEDGE_PACKS.find(p => p.id === previewId) ?? null
 
   return (
-    <div className="flex flex-col gap-[16px]">
-      <SectionCard title="Knowledge Packs">
+    <FormSections>
+      <FormSection
+        title="Knowledge Packs"
+        description="The grounded facts this playbook is allowed to draw on. At least one is required."
+      >
         <SwitchTab
           items={[
             { id: "all",      label: `All (${KNOWLEDGE_PACKS.length})` },
@@ -113,11 +116,12 @@ export function KnowledgeSection({ value, onChange }: KnowledgeSectionProps) {
         </div>
 
         {value.selectedPackIds.length === 0 && (
-          <p style={{ fontSize: 12, fontWeight: 500, color: "var(--tag-alert-fg)", margin: 0 }}>
-            ⚠ At least one knowledge pack is required before proceeding
-          </p>
+          <div className="flex items-center gap-[6px]">
+            <Tag variant="alert" size="sm">Required</Tag>
+            <span style={{ fontSize: 12, color: SUB }}>Select at least one knowledge pack before proceeding.</span>
+          </div>
         )}
-      </SectionCard>
+      </FormSection>
 
       <SlideOut
         open={previewPack !== null}
@@ -151,6 +155,6 @@ export function KnowledgeSection({ value, onChange }: KnowledgeSectionProps) {
           </div>
         )}
       </SlideOut>
-    </div>
+    </FormSections>
   )
 }

@@ -1,29 +1,50 @@
 // ────────────────────────────────────────────────────────────────────────
 // Detail shell → History tab.
 //
-// Every category chip and every feed entry comes straight from
-// playbook.history — HistoryCategory ("Published"|"Configuration"|
-// "Trust & NBA"|"Gates"|"Phases") already IS the fixed category set, so the
-// chips are generated from it, not a separately maintained list.
+// ENTRIES ARE ENTITY ROWS, GROUPED UNDER A DATE DIVIDER (changed 2026-09-15).
+//
+// The feed used to be hand-built: a bare flex row per entry with its own
+// avatar, its own text sizes, its own right-aligned timestamp column, and two
+// hand-rolled pills for the before/after values — a `<span>` with a padding, a
+// radius and a `--tag-*-bg` background, which is precisely what audit check 12
+// looks for. Every one of those pieces already exists on `EntityList`: the
+// icon, the title, the meta row, the tag and the timestamp slot. So the rows
+// are real entity rows now, one `CardContainer size="sm"` each, exactly as the
+// list view builds them.
+//
+// The group header is a DATE DIVIDER: the date in Label S (12px / 600) with a
+// 1px Border/Neutral/Subtle rule running out from it, the same device the rest
+// of the product uses to break a feed by day.
 //
 // Two things the data doesn't carry, both noted rather than silently
 // invented:
 //  - No per-entry author — every entry is shown as the playbook's owner
 //    (same stand-in used in VersionsTab).
-//  - No time-of-day, only a date string — "exact time" on the right reuses
-//    the same date in a longer format; there's no clock time to show.
+//  - No time-of-day, only a date string — so the row's timestamp is the
+//    relative day, and the exact date is the divider above it.
 // ────────────────────────────────────────────────────────────────────────
 
 import { useMemo, useState } from "react"
-import { ArrowRight } from "lucide-react"
+import { History as HistoryIcon } from "lucide-react"
 import { Chip } from "@/components/ui/chip"
-import { AvatarCircle } from "@/components/ui/avatar"
-import type { Playbook, HistoryCategory } from "./playbooks-data"
+import { CardContainer } from "@/components/ui/card-container"
+import { EntityList, type EntityListItemData } from "@/components/ui/entity-list"
+import { EmptyState } from "@/components/ui/empty-state"
+import type { Playbook, HistoryCategory, HistoryEntry } from "./playbooks-data"
 
-const SUB = "var(--field-supporting)"
-const TXT = "var(--foreground)"
+const SUB = "var(--color-text-subtitle)"
 
 const CATEGORIES: HistoryCategory[] = ["Published", "Configuration", "Trust & NBA", "Gates", "Phases"]
+
+type ELIconVariant = NonNullable<EntityListItemData["iconVariant"]>
+
+const CATEGORY_ICON: Record<HistoryCategory, { iconName: string; iconVariant: ELIconVariant }> = {
+  "Published":     { iconName: "Rocket",      iconVariant: "success"    },
+  "Configuration": { iconName: "Settings2",   iconVariant: "info"       },
+  "Trust & NBA":   { iconName: "ShieldCheck", iconVariant: "purple"     },
+  "Gates":         { iconName: "ListChecks",  iconVariant: "yellow"     },
+  "Phases":        { iconName: "Layers",      iconVariant: "light-blue" },
+}
 
 function parseValueChange(description: string): { from: string; to: string } | null {
   const m = description.match(/from\s+(.+?)\s+to\s+(.+?)(?:\)|$)/i)
@@ -31,15 +52,10 @@ function parseValueChange(description: string): { from: string; to: string } | n
   return { from: m[1], to: m[2] }
 }
 
-function formatLongDate(dateStr: string): string {
+function formatSectionHeader(dateStr: string, todayStr: string): string {
+  if (dateStr === todayStr) return "Today"
   const d = new Date(`${dateStr}T00:00:00`)
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-}
-
-function formatSectionHeader(dateStr: string, todayStr: string): string {
-  if (dateStr === todayStr) return "TODAY"
-  const d = new Date(`${dateStr}T00:00:00`)
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }).toUpperCase()
 }
 
 function formatRelative(dateStr: string, todayStr: string): string {
@@ -51,6 +67,35 @@ function formatRelative(dateStr: string, todayStr: string): string {
   if (months < 12) return months === 1 ? "1 month ago" : `${months} months ago`
   const years = Math.round(months / 12)
   return years === 1 ? "1 year ago" : `${years} years ago`
+}
+
+/** The date in Label S, with a 1px Border/Neutral/Subtle rule out to the edge. */
+function DateDivider({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-[12px]">
+      <span style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.5, color: SUB, whiteSpace: "nowrap" }}>
+        {label}
+      </span>
+      <div style={{ flex: 1, height: 1, background: "var(--color-border-neutral-subtle)" }} />
+    </div>
+  )
+}
+
+function toEntityItem(entry: HistoryEntry, index: number, owner: string, todayStr: string): EntityListItemData {
+  const change = parseValueChange(entry.description)
+  const { iconName, iconVariant } = CATEGORY_ICON[entry.category]
+  return {
+    id: `${entry.date}-${index}`,
+    title: entry.description,
+    iconName,
+    iconVariant,
+    // The before/after values, as a real Tag via the meta row's `tag` slot —
+    // not two coloured <span> pills drawn by hand.
+    primaryMeta: change ? [{ tag: `${change.from} → ${change.to}` }] : undefined,
+    secondaryMeta: [{ iconName: "User", label: owner, tooltip: `Changed by ${owner}` }],
+    tags: [{ label: entry.category }],
+    timestamp: formatRelative(entry.date, todayStr),
+  }
 }
 
 export function HistoryTab({ playbook }: { playbook: Playbook }) {
@@ -71,7 +116,7 @@ export function HistoryTab({ playbook }: { playbook: Playbook }) {
   const newestFirst = [...visible].sort((a, b) => b.date.localeCompare(a.date))
 
   const groups = useMemo(() => {
-    const byDate = new Map<string, typeof newestFirst>()
+    const byDate = new Map<string, HistoryEntry[]>()
     for (const entry of newestFirst) {
       const list = byDate.get(entry.date) ?? []
       list.push(entry)
@@ -81,7 +126,7 @@ export function HistoryTab({ playbook }: { playbook: Playbook }) {
   }, [newestFirst])
 
   return (
-    <div className="flex flex-col gap-[16px]">
+    <div className="flex flex-col gap-[24px]">
       <div className="flex flex-wrap gap-[8px]">
         <Chip variant={filter === "All" ? "primary" : "secondary"} size="m" onClick={() => setFilter("All")}>
           All {counts.All}
@@ -93,43 +138,28 @@ export function HistoryTab({ playbook }: { playbook: Playbook }) {
         ))}
       </div>
 
-      <div className="flex flex-col gap-[20px]">
-        {groups.map(([date, entries]) => (
-          <div key={date}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: SUB, letterSpacing: "0.06em", marginBottom: 10 }}>
-              {formatSectionHeader(date, todayStr)}
-            </div>
-            <div className="flex flex-col gap-[14px]">
-              {entries.map((entry, i) => {
-                const change = parseValueChange(entry.description)
-                return (
-                  <div key={i} className="flex items-start justify-between gap-[12px]">
-                    <div className="flex items-start gap-[8px] min-w-0">
-                      <AvatarCircle name={playbook.owner.name} sizeKey="xs" />
-                      <div className="min-w-0">
-                        <div style={{ fontSize: 12, color: SUB }}>
-                          <span style={{ fontWeight: 600, color: TXT }}>{playbook.owner.name}</span> {entry.description}
-                        </div>
-                        {change && (
-                          <div className="flex items-center gap-[6px]" style={{ marginTop: 6 }}>
-                            <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 8, background: "var(--tag-error-bg)", color: "var(--tag-error-fg)" }}>{change.from}</span>
-                            <ArrowRight size={11} style={{ color: SUB }} />
-                            <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 8, background: "var(--tag-success-bg)", color: "var(--tag-success-fg)" }}>{change.to}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ fontSize: 12, color: TXT }}>{formatRelative(date, todayStr)}</div>
-                      <div style={{ fontSize: 11, color: SUB }}>{formatLongDate(date)}</div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+      {groups.length === 0 ? (
+        <CardContainer variant="dashed">
+          <EmptyState
+            icon={HistoryIcon}
+            title={`No ${filter.toLowerCase()} changes`}
+            description="Nothing in this playbook's history matches the selected category."
+            ctaLabel="Show all changes"
+            onCta={() => setFilter("All")}
+          />
+        </CardContainer>
+      ) : (
+        groups.map(([date, entries]) => (
+          <div key={date} className="flex flex-col gap-[12px]">
+            <DateDivider label={formatSectionHeader(date, todayStr)} />
+            {entries.map((entry, i) => (
+              <CardContainer key={`${date}-${i}`} size="sm" className="!p-0 overflow-hidden">
+                <EntityList items={[toEntityItem(entry, i, playbook.owner.name, todayStr)]} />
+              </CardContainer>
+            ))}
           </div>
-        ))}
-      </div>
+        ))
+      )}
     </div>
   )
 }

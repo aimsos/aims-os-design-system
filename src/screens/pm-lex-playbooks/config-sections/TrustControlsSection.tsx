@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Slider } from "@/components/ui/slider"
 import { OptionCard } from "@/components/experimental/widget-screen-parts"
-import { SectionCard, FieldHeading, HelperText, SelectField } from "./shared"
+import { FormSections, FormSection, FieldHeading, HelperText, SelectField } from "./shared"
 import {
   TRUST_PRESETS, SENSITIVE_TOPIC_ACTIONS, DEFAULT_HANDOFF_TRIGGERS, DEFAULT_REVIEW_REQUIREMENTS,
   ESCALATION_TIMEOUT_OPTIONS, applyTrustPreset,
@@ -48,7 +48,7 @@ function PolicyPreset({ value, onChange }: TrustControlsSectionProps) {
   const preset = TRUST_PRESETS.find(p => p.id === value.selectedPreset) ?? null
 
   return (
-    <SectionCard title="Select Policy Preset">
+    <FormSection title="Select Policy Preset">
       <p style={{ fontSize: 12, color: SUB, margin: 0 }}>
         Choose a preset to automatically configure trust mode, confidence thresholds, sensitive topics, and handoff behavior. You can customize these settings after selection.
       </p>
@@ -82,7 +82,7 @@ function PolicyPreset({ value, onChange }: TrustControlsSectionProps) {
           </CardContainer>
         </>
       )}
-    </SectionCard>
+    </FormSection>
   )
 }
 
@@ -96,7 +96,7 @@ const CONFIDENCE_BANDS = [
 
 function ConfidenceThresholds({ value, onChange }: TrustControlsSectionProps) {
   return (
-    <SectionCard title="Confidence & Review Thresholds">
+    <FormSection title="Confidence & Review Thresholds">
       <div>
         <FieldHeading>Default Confidence Threshold</FieldHeading>
         <Slider type="single" min={0} max={100} step={1} value={value.confidenceThreshold} onChange={v => onChange({ confidenceThreshold: v })} />
@@ -123,7 +123,7 @@ function ConfidenceThresholds({ value, onChange }: TrustControlsSectionProps) {
           </CardContainer>
         ))}
       </div>
-    </SectionCard>
+    </FormSection>
   )
 }
 
@@ -141,7 +141,7 @@ function SensitiveTopics({ value, onChange }: TrustControlsSectionProps) {
   }
 
   return (
-    <SectionCard title="Sensitive Topics & Guardrails">
+    <FormSection title="Sensitive Topics & Guardrails">
       <p style={{ fontSize: 12, color: SUB, margin: 0 }}>Define sensitive content patterns that trigger special handling or blocking</p>
 
       <div className="flex flex-col gap-[10px]">
@@ -163,7 +163,7 @@ function SensitiveTopics({ value, onChange }: TrustControlsSectionProps) {
       <div>
         <Button variant="secondary" size="sm" icon={<Plus size={13} />} onClick={addTopic}>Add Topic</Button>
       </div>
-    </SectionCard>
+    </FormSection>
   )
 }
 
@@ -186,7 +186,7 @@ function HumanIntervention({ value, onChange }: TrustControlsSectionProps) {
   const isCustom = (id: string) => !DEFAULT_HANDOFF_TRIGGERS.some(t => t.id === id)
 
   return (
-    <SectionCard title="Human Intervention Settings">
+    <FormSection title="Human Intervention Settings">
       <Toggle
         checked={value.aiHandoffEnabled}
         onChange={checked => onChange({ aiHandoffEnabled: checked })}
@@ -219,7 +219,7 @@ function HumanIntervention({ value, onChange }: TrustControlsSectionProps) {
         </div>
         <Button variant="tertiary" size="sm" icon={<Plus size={13} />} onClick={addCustomTrigger} style={{ marginTop: 8 }}>Add</Button>
       </div>
-    </SectionCard>
+    </FormSection>
   )
 }
 
@@ -233,7 +233,7 @@ const POST_HANDOFF_OPTIONS: { id: PostHandoffBehavior; icon: string; title: stri
 
 function PostHandoffBehaviorSection({ value, onChange }: TrustControlsSectionProps) {
   return (
-    <SectionCard title="Post-Handoff Behavior">
+    <FormSection title="Post-Handoff Behavior">
       <p style={{ fontSize: 12, color: SUB, margin: 0 }}>Where to route the conversation after handoff</p>
       <div className="grid grid-cols-3 gap-[12px]">
         {POST_HANDOFF_OPTIONS.map(opt => (
@@ -247,7 +247,7 @@ function PostHandoffBehaviorSection({ value, onChange }: TrustControlsSectionPro
           />
         ))}
       </div>
-    </SectionCard>
+    </FormSection>
   )
 }
 
@@ -269,7 +269,7 @@ function HitlReview({ value, onChange }: TrustControlsSectionProps) {
   const isCustom = (id: string) => !DEFAULT_REVIEW_REQUIREMENTS.some(r => r.id === id)
 
   return (
-    <SectionCard title="Human-in-the-Loop Review">
+    <FormSection title="Human-in-the-Loop Review">
       <div>
         <FieldHeading>Review Requirements</FieldHeading>
         <p style={{ fontSize: 12, color: SUB, margin: "0 0 8px" }}>Define scenarios that require human review before sending.</p>
@@ -300,7 +300,7 @@ function HitlReview({ value, onChange }: TrustControlsSectionProps) {
           onChange={v => onChange({ escalationTimeout: (v || "30 minutes") as TrustControlsDraft["escalationTimeout"] })}
         />
       </div>
-    </SectionCard>
+    </FormSection>
   )
 }
 
@@ -308,18 +308,20 @@ function HitlReview({ value, onChange }: TrustControlsSectionProps) {
 
 export function TrustControlsSection(props: TrustControlsSectionProps) {
   return (
-    <div className="flex flex-col gap-[16px]">
+    <div className="flex flex-col gap-[24px]">
       <div className="flex items-center gap-[8px]">
         <span style={{ fontSize: 14, fontWeight: 600, color: TXT }}>Default Trust Policy</span>
         <Tag variant="purple" size="sm">Playbook-Level</Tag>
       </div>
 
-      <PolicyPreset {...props} />
-      <ConfidenceThresholds {...props} />
-      <SensitiveTopics {...props} />
-      <HumanIntervention {...props} />
-      <PostHandoffBehaviorSection {...props} />
-      <HitlReview {...props} />
+      <FormSections>
+        <PolicyPreset {...props} />
+        <ConfidenceThresholds {...props} />
+        <SensitiveTopics {...props} />
+        <HumanIntervention {...props} />
+        <PostHandoffBehaviorSection {...props} />
+        <HitlReview {...props} />
+      </FormSections>
     </div>
   )
 }

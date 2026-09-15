@@ -7,11 +7,13 @@
 
 import { useRef, useState } from "react"
 import { Popover } from "@base-ui/react/popover"
-import { Info, Check, Sparkles } from "lucide-react"
+import { Info, Check } from "lucide-react"
 import { ScreenLayout } from "@/components/layouts/screen-layout"
 import type { SidebarItem } from "@/components/ui/sidebar"
 import { Header } from "@/components/ui/header"
 import { Button } from "@/components/ui/button"
+import { StepperNavFooter } from "@/components/ui/stepper-nav-footer"
+import { InformativeCard } from "@/components/ui/informative-card"
 import { CardContainer } from "@/components/ui/card-container"
 import { HighlightIcon } from "@/components/ui/highlight-icon"
 import { Tag } from "@/components/ui/tag"
@@ -125,6 +127,22 @@ export default function CreatePlaybookPage({ onCancel, onStartBuilding }: Create
     <ScreenLayout
       sidebarItems={SIDEBAR_ITEMS}
       activeSidebarId="playbooks"
+      // No Sidebar while a full-page CREATE surface is open (Create pattern):
+      // the flow owns the page, and `StepperNavFooter`'s Cancel is the way out.
+      hideSidebar
+      // `stickyFooter` drops the 64px the scroll area reserves for a floating
+      // Pagination — without it a sticky footer lands 64px short of the bottom.
+      stickyFooter
+      pagination={
+        <StepperNavFooter
+          variant="cancel-next"
+          cancelLabel="Cancel"
+          onCancel={onCancel}
+          nextLabel="Start Building"
+          nextDisabled={selected !== "scratch"}
+          onNext={onStartBuilding}
+        />
+      }
       header={isScrolled => (
         <Header
           size={isScrolled ? "compress" : "size-l"}
@@ -140,32 +158,15 @@ export default function CreatePlaybookPage({ onCancel, onStartBuilding }: Create
         ))}
       </div>
 
-      <div className="flex items-center justify-between" style={{ marginTop: 20 }}>
-        <button onClick={onCancel} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 500, color: SUB }}>
-          Cancel
-        </button>
-        {selected === "scratch" && (
-          // variant="primary", not "main" — Guardrails reserve "main" for
-          // Header.primaryAction only. The task places this button inline
-          // below the cards (beside Cancel), not in the header, so it stays
-          // a real DS variant rather than the header-exclusive one.
-          <Button variant="primary" icon={<Sparkles size={14} />} onClick={onStartBuilding}>
-            Start Building →
-          </Button>
-        )}
-      </div>
-
-      <div
-        className="flex items-start gap-[10px]"
-        style={{ marginTop: 20, padding: "12px 16px", borderRadius: 8, background: "var(--tag-purple-bg)", border: "1px solid var(--tag-purple-bd)" }}
-      >
-        <Sparkles size={16} style={{ color: "var(--tag-purple-fg)", flexShrink: 0, marginTop: 1 }} />
-        <div>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--tag-purple-fg)" }}>Governed Execution</span>
-          <p style={{ fontSize: 12, color: SUB, margin: "4px 0 0", lineHeight: 1.5 }}>
-            NBA may select and adapt within the strategy's guardrails · Real execution runs through governed orchestration policies.
-          </p>
-        </div>
+      {/* A real InformativeCard, not a purple div with its own padding, radius
+          and border — the DS already owns this shape. */}
+      <div style={{ marginTop: 24 }}>
+        <InformativeCard
+          state="informative"
+          size="md"
+          title="Governed Execution"
+          description="NBA may select and adapt within the strategy's guardrails · Real execution runs through governed orchestration policies."
+        />
       </div>
     </ScreenLayout>
   )
