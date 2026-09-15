@@ -54,7 +54,7 @@ export function PreviewSlideOut({ playbook, onClose, onGoToPlaybook }: PreviewSl
         <div className="flex flex-col gap-[16px]" style={{ padding: 0 }}>
           <div
             className="flex items-start gap-[10px]"
-            style={{ padding: "12px 16px", borderRadius: 8, background: "var(--tag-alert-bg)", border: "1px solid var(--tag-alert-bd)" }}
+            style={{ paddingTop: 12, paddingBottom: 12, paddingLeft: 16, paddingRight: 16, borderRadius: 8, background: "var(--tag-alert-bg)", border: "1px solid var(--tag-alert-bd)" }}
           >
             <span style={{ fontSize: 12, fontWeight: 700, color: "var(--tag-alert-fg)" }}>Preview:</span>
             <p style={{ fontSize: 12, color: "var(--tag-alert-fg)", margin: 0, lineHeight: 1.5 }}>
